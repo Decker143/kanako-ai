@@ -58,6 +58,7 @@ async function readRecords<T>(store: "messages" | "tasks"): Promise<T[]> {
 export function OfflineAIWorkspace() {
   const engineRef = useRef<LocalEngine | null>(null);
   const [online, setOnline] = useState(true);
+  const [organizationId, setOrganizationId] = useState("");
   const [modelReady, setModelReady] = useState(false);
   const [loadingModel, setLoadingModel] = useState(false);
   const [modelProgress, setModelProgress] = useState(0);
@@ -73,6 +74,7 @@ export function OfflineAIWorkspace() {
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     update();
+    try { setOrganizationId(localStorage.getItem("kanako-ai-active-org") ?? ""); } catch { setOrganizationId(""); }
     window.addEventListener("online", update);
     window.addEventListener("offline", update);
     Promise.all([readRecords<LocalMessage>("messages"), readRecords<LocalTask>("tasks")])
@@ -173,13 +175,14 @@ export function OfflineAIWorkspace() {
   async function syncTasks() {
     const pending = tasks.filter(task => !task.syncedAt);
     if (!pending.length || !online || busy) return;
+    if (!organizationId) { setSyncMessage("Open the main KANAKO workspace once while online so this device can remember the target workspace."); return; }
     setBusy(true);
     setSyncMessage("Syncing local task drafts…");
     try {
       const response = await fetch("/api/offline/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasks: pending }),
+        body: JSON.stringify({ organizationId, tasks: pending }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sync failed.");
@@ -199,7 +202,7 @@ export function OfflineAIWorkspace() {
     <div className="panel">
       <div className="row-between"><div><div className="eyebrow">DEVICE-LOCAL AI</div><h2 style={{margin:"8px 0"}}>Offline intelligence</h2></div><span className="pill">{online ? "Online" : "Offline"}</span></div>
       <p className="muted" style={{fontSize:13}}>A small language model runs directly in your browser. Download it once while connected; after its files are cached, local chat can run without sending prompts to a cloud AI provider.</p>
-      <div className="row-between" style={{gap:12,flexWrap:"wrap"}}><div><strong style={{fontSize:13}}>Llama 3.2 1B · 4-bit</strong><div className="muted" style={{fontSize:11}}>Estimated graphics memory requirement: about 0.9 GB</div></div><button className="btn" onClick={prepareModel} disabled={loadingModel || modelReady || !online}>{loadingModel ? "Preparing…" : modelReady ? "Local model ready" : "Download & prepare model"}</button></div>
+      <div className="row-between" style={{gap:12,flexWrap:"wrap"}}><div><strong style={{fontSize:13}}>Llama 3.2 1B · 4-bit</strong><div className="muted" style={{fontSize:11}}>Estimated graphics memory requirement: about 0.9 GB</div></div><button className="btn" onClick={prepareModel} disabled={loadingModel || modelReady || !online}>{loadingModel ? "Preparing…" : modelReady ? "Local model ready" : "Download / load local model"}</button></div>
       {(loadingModel || modelProgress>0)&&<div style={{height:7,background:"#202a39",borderRadius:8,marginTop:14,overflow:"hidden"}}><div style={{height:"100%",width:modelProgress+"%",background:"#8b7cff",transition:"width .2s"}}/></div>}
       <p className="muted" style={{fontSize:11,marginBottom:0}}>{modelMessage}</p>
     </div>
