@@ -85,7 +85,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
       <Link className="brand" href="/"><div className="brand-mark">K</div><span>KANAKO AI</span></Link>
       <div className="nav-label">WORKSPACE</div>
       {nav.map(([key,label,icon])=><Link key={key} className={`nav-link ${view===key?"active":""}`} href={key==="overview"?"/":`/?view=${key}`}><span>{icon}</span>{label}{key==="approvals"&&pendingApprovals>0?<span className="nav-count">{pendingApprovals}</span>:null}</Link>)}
-      <div className="nav-label">SYSTEM</div><a className="nav-link" href="#system-status">⚙ System status</a>
+      <div className="nav-label">SYSTEM</div><Link className="nav-link" href="/offline">◉ Offline AI workspace</Link><a className="nav-link" href="#system-status">⚙ System status</a>
       <div className="sidebar-user"><div className="muted" style={{fontSize:10,marginBottom:7}}>SIGNED IN</div><div style={{fontSize:12,overflowWrap:"anywhere"}}>{user.email}</div><span className="pill" style={{marginTop:8}}>{role}</span><form action={signOut}><button className="btn secondary" style={{marginTop:12,width:"100%"}}>Sign out</button></form></div>
     </aside>
     <main className="main">
