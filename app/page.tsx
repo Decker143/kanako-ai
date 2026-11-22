@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { AuthForm } from "@/components/auth-form";
 import { createClient } from "@/lib/supabase/server";
+import { getOrganizationContext } from "@/lib/supabase/organization-context";
 import {
   createAgent, createApproval, createConversation, createKnowledgeDocument,
   createReport, createTask, createWorkflow, decideApproval, reviewAgentRun, reviewAgentMemory,
-  signOut, updateAgentCapabilities, updateAgentStatus, updateTaskStatus, updateWorkflowStatus,
+  signOut, setActiveOrganization, updateAgentCapabilities, updateAgentStatus, updateTaskStatus, updateWorkflowStatus,
 } from "@/app/actions";
 import { ChatPanel } from "@/components/chat-panel";
 import { AgentRunControl } from "@/components/agent-run-control";
@@ -37,12 +38,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return <AuthForm error={params.error} message={params.message} />;
 
-  const { data: memberships } = await supabase.from("organization_members").select("organization_id,role").eq("user_id", user.id);
+  const { membership, memberships } = await getOrganizationContext(supabase, user.id);
   const orgIds = (memberships ?? []).map(m => m.organization_id);
   const { data: organizations } = orgIds.length
     ? await supabase.from("organizations").select("id,name").in("id", orgIds).order("created_at")
     : { data: [] as {id:string;name:string}[] };
-  const activeOrg = organizations?.[0];
+  const activeOrg = organizations?.find(org => org.id === membership?.organization_id);
   const aiExecutionEnabled = process.env.KANAKO_AI_EXECUTION_ENABLED === "true";
   const webResearchEnabled = process.env.KANAKO_WEB_RESEARCH_ENABLED === "true" && Boolean(process.env.BRAVE_SEARCH_API_KEY);
 
@@ -51,7 +52,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   }
 
   const orgId = activeOrg.id;
-  const role = memberships?.find(m => m.organization_id === orgId)?.role ?? "member";
+  const role = membership?.role ?? "member";
 
   const [{data:departments},{data:tasks},{data:agents},{data:approvals},{data:workflows},{data:documents},{data:reports},{data:activity},{data:conversations},{data:agentRuns},{data:workflowRuns},{data:agentMemories},{data:learningEvents}] = await Promise.all([
     supabase.from("departments").select("id,name,description,color").eq("organization_id",orgId).order("name"),
@@ -104,7 +105,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
       <div className="sidebar-user"><div className="muted" style={{fontSize:10,marginBottom:7}}>SIGNED IN</div><div style={{fontSize:12,overflowWrap:"anywhere"}}>{user.email}</div><span className="pill" style={{marginTop:8}}>{role}</span><form action={signOut}><button className="btn secondary" style={{marginTop:12,width:"100%"}}>Sign out</button></form></div>
     </aside>
     <main className="main">
-      <div className="topline"><div><div className="eyebrow">KANAKO AI / {heading[view]}</div><h1>{activeOrg.name}</h1><p className="muted" style={{margin:0}}>Your company operations, coordinated in one intelligent workspace.</p></div><span className="pill">● Supabase connected</span></div>
+      <div className="topline"><div><div className="eyebrow">KANAKO AI / {heading[view]}</div><h1>{activeOrg.name}</h1><p className="muted" style={{margin:0}}>Your company operations, coordinated in one intelligent workspace.</p></div><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",justifyContent:"flex-end"}}>{(organizations?.length ?? 0)>1&&<form action={setActiveOrganization} style={{display:"flex",gap:6,alignItems:"center"}}><select className="field" name="organizationId" defaultValue={orgId} aria-label="Active organization">{organizations?.map(org=><option key={org.id} value={org.id}>{org.name}</option>)}</select><button className="btn secondary" type="submit">Switch</button></form>}<span className="pill">● Supabase connected</span></div></div>
       {params.error&&<div className="panel error" style={{marginBottom:18}}>{params.error}</div>}
       {view==="overview"&&<>
         <div className="grid">
