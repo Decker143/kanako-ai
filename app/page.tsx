@@ -77,13 +77,33 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
   const unassignedTasks = activeTasks.filter(t => !t.assigned_agent_id);
   const failedWorkflowRuns = (workflowRuns ?? []).filter(run => run.status === "failed");
+  const failedAgentRuns = (agentRuns ?? []).filter(run => run.status === "failed");
   const activeEmployees = (agents ?? []).filter(agent => agent.status === "active");
+  const availableEmployees = activeEmployees.filter(agent => agent.availability_status === "available");
+  const unavailableEmployees = activeEmployees.filter(agent => agent.availability_status !== "available");
+  const employeesAtCapacity = activeEmployees.filter(agent => {
+    const assignedOpenTasks = activeTasks.filter(task => task.assigned_agent_id === agent.id).length;
+    return assignedOpenTasks >= (agent.max_concurrent_tasks ?? 2);
+  });
+  const staleTasks = activeTasks.filter(task =>
+    ["queued", "in_progress", "blocked"].includes(task.status) &&
+    new Date(task.created_at).getTime() < new Date().getTime() - 72 * 60 * 60 * 1000
+  );
+  const agingApprovals = (approvals ?? []).filter(approval =>
+    approval.status === "pending" &&
+    new Date(approval.created_at).getTime() < new Date().getTime() - 48 * 60 * 60 * 1000
+  );
+  const highPriorityTasks = activeTasks.filter(task => ["high", "urgent"].includes(task.priority));
   const ceoProfile = (agents ?? []).find(agent => agent.job_title === "AI Chief Executive Officer");
   const executiveAlerts = [
-    ...overdueTasks.slice(0, 4).map(task => ({ label: "Overdue task", detail: task.title, href: "/?view=tasks" })),
-    ...blockedTasks.slice(0, 4).map(task => ({ label: "Blocked task", detail: task.title, href: "/?view=tasks" })),
-    ...failedWorkflowRuns.slice(0, 3).map(run => ({ label: "Workflow failure", detail: run.error || "A workflow run needs investigation", href: "/?view=workflows" })),
-  ].slice(0, 8);
+    ...overdueTasks.slice(0, 3).map(task => ({ label: "Overdue task", detail: task.title, href: "/?view=tasks" })),
+    ...blockedTasks.slice(0, 3).map(task => ({ label: "Blocked task", detail: task.title, href: "/?view=tasks" })),
+    ...staleTasks.filter(task => !blockedTasks.some(blocked => blocked.id === task.id)).slice(0, 2).map(task => ({ label: "Stale task · 72h+", detail: task.title, href: "/?view=tasks" })),
+    ...agingApprovals.slice(0, 2).map(approval => ({ label: "Approval waiting · 48h+", detail: approval.title, href: "/?view=approvals" })),
+    ...failedAgentRuns.slice(0, 2).map(run => ({ label: "AI employee run failed", detail: run.error || "An AI run needs investigation", href: "/?view=agents" })),
+    ...failedWorkflowRuns.slice(0, 2).map(run => ({ label: "Workflow failure", detail: run.error || "A workflow run needs investigation", href: "/?view=workflows" })),
+    ...employeesAtCapacity.slice(0, 2).map(agent => ({ label: "Employee at capacity", detail: agent.name + " has no remaining task capacity", href: "/?view=agents" })),
+  ].slice(0, 10);
   const activeConversation = (conversations ?? []).find(c => c.id === params.conversation) ?? conversations?.[0];
   const {data:messages} = activeConversation
     ? await supabase.from("messages").select("id,role,content,created_at").eq("conversation_id",activeConversation.id).eq("organization_id",orgId).order("created_at")
@@ -123,14 +143,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         </div>
         <div className="section-head"><h2>CEO Office · Executive operations brief</h2><span className="pill">{ceoProfile?.status ?? "CEO profile missing"}</span></div>
         <div className="grid">
-          <div className="panel"><div className="eyebrow">WORKFORCE READINESS</div><h3>{activeEmployees.length} active / {agents?.length ?? 0} profiles</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Only activated employees are counted as active staff. Draft profiles are not treated as operational capacity.</p></div>
-          <div className="panel"><div className="eyebrow">TASK HEALTH</div><h3>{blockedTasks.length} blocked · {overdueTasks.length} overdue</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Based on the latest {tasks?.length ?? 0} task records loaded for this workspace.</p></div>
-          <div className="panel"><div className="eyebrow">ASSIGNMENT COVERAGE</div><h3>{unassignedTasks.length} unassigned</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Open tasks without an employee assignment still need routing or owner review.</p></div>
-          <div className="panel"><div className="eyebrow">WORKFLOW HEALTH</div><h3>{failedWorkflowRuns.length} failed runs</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Latest {workflowRuns?.length ?? 0} workflow run records. Failures are not automatically retried.</p></div>
+          <div className="panel"><div className="eyebrow">WORKFORCE READINESS</div><h3>{availableEmployees.length} available · {unavailableEmployees.length} unavailable</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{activeEmployees.length} active employees across {agents?.length ?? 0} saved profiles. Draft profiles are excluded from operational capacity.</p></div>
+          <div className="panel"><div className="eyebrow">TASK HEALTH</div><h3>{blockedTasks.length} blocked · {overdueTasks.length} overdue</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{staleTasks.length} open tasks have had no status closure for 72+ hours. Based on the latest {tasks?.length ?? 0} task records.</p></div>
+          <div className="panel"><div className="eyebrow">WORKLOAD &amp; PRIORITIES</div><h3>{employeesAtCapacity.length} at capacity · {highPriorityTasks.length} high priority</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{unassignedTasks.length} unassigned tasks still need routing or owner review.</p></div>
+          <div className="panel"><div className="eyebrow">EXECUTION &amp; APPROVAL HEALTH</div><h3>{failedAgentRuns.length + failedWorkflowRuns.length} failed · {agingApprovals.length} aging approvals</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Failures and approvals older than 48 hours are surfaced for owner attention. No automatic retries or approvals are performed.</p></div>
         </div>
         <div className="panel" style={{marginTop:14}}>
           <div className="row-between"><div><div className="eyebrow">OWNER ATTENTION</div><h3 style={{margin:"4px 0 0"}}>{executiveAlerts.length ? "Items requiring attention" : "No immediate operational alerts"}</h3></div><span className="pill">{executiveAlerts.length} alerts</span></div>
-          {executiveAlerts.length ? <div className="stack" style={{marginTop:12}}>{executiveAlerts.map((alert,index)=><Link key={index} className="row-between subtle-link" href={alert.href} style={{padding:"9px 0",borderTop:"1px solid var(--line)"}}><span><strong>{alert.label}</strong><span className="muted" style={{display:"block",fontSize:12}}>{alert.detail}</span></span><span>Review →</span></Link>)}</div> : <p className="muted" style={{fontSize:12,marginBottom:0}}>No overdue or blocked tasks and no failed workflow runs were found in the records currently loaded.</p>}
+          {executiveAlerts.length ? <div className="stack" style={{marginTop:12}}>{executiveAlerts.map((alert,index)=><Link key={index} className="row-between subtle-link" href={alert.href} style={{padding:"9px 0",borderTop:"1px solid var(--line)"}}><span><strong>{alert.label}</strong><span className="muted" style={{display:"block",fontSize:12}}>{alert.detail}</span></span><span>Review →</span></Link>)}</div> : <p className="muted" style={{fontSize:12,marginBottom:0}}>No overdue, blocked, aging, failed, or capacity alerts were found in the records currently loaded.</p>}
         </div>
         <div className="section-head"><h2>Department overview</h2><Link className="subtle-link" href="/?view=departments">View all →</Link></div>
         <div className="grid">{(departments??[]).map(d=><div className="panel" key={d.id}><div style={{fontWeight:700}}>{d.name}</div><p className="muted" style={{fontSize:12,marginBottom:0}}>{d.description||"Department workspace"}</p></div>)}</div>
