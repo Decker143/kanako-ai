@@ -103,7 +103,9 @@ export async function POST(request: Request) {
     }).eq("id", run.id).eq("organization_id", membership.organization_id);
     if (updateError) throw updateError;
 
-    await supabase.from("tasks").update({ status: "in_review" }).eq("id", task.id).eq("organization_id", membership.organization_id);
+    const { error: reviewQueueError } = await supabase.from("tasks").update({ status: "in_review" })
+      .eq("id", task.id).eq("organization_id", membership.organization_id);
+    if (reviewQueueError) throw reviewQueueError;
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversation.id);
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
