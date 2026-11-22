@@ -12,6 +12,7 @@ import { ChatPanel } from "@/components/chat-panel";
 import { AgentRunControl } from "@/components/agent-run-control";
 import { WorkflowRunControl } from "@/components/workflow-run-control";
 import { CEODelegateControl } from "@/components/ceo-delegate-control";
+import { OfflineOrgContext } from "@/components/offline-org-context";
 
 const nav = [
   ["overview","Overview","◫"],["agents","AI Workforce","✧"],["departments","Departments","▦"],
@@ -81,6 +82,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   };
 
   return <div className="shell">
+    <OfflineOrgContext organizationId={orgId} />
     <aside className="sidebar">
       <Link className="brand" href="/"><div className="brand-mark">K</div><span>KANAKO AI</span></Link>
       <div className="nav-label">WORKSPACE</div>
