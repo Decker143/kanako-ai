@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { getOrganizationContext } from "@/lib/supabase/organization-context";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -9,13 +11,7 @@ async function context() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/");
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("organization_id, role")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const { membership } = await getOrganizationContext(supabase, user.id);
   if (!membership) redirect("/");
   return { supabase, user, organizationId: membership.organization_id, role: membership.role };
 }
@@ -433,5 +429,30 @@ export async function saveChatMessage(formData: FormData) {
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  redirect("/");
+}
+
+
+export async function setActiveOrganization(formData: FormData) {
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/");
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("organization_id", organizationId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!membership) redirect("/?error=" + encodeURIComponent("You do not have access to that workspace."));
+  const cookieStore = await cookies();
+  cookieStore.set("kanako_active_org", membership.organization_id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/");
   redirect("/");
 }
