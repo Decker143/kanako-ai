@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This AI employee does not have the Task execution permission." }, { status: 403 });
   }
   if (!agent.model_name || !agent.model_name.includes("/")) return NextResponse.json({ error: "Configure a valid AI Gateway model ID first." }, { status: 409 });
-  if (!["queued", "blocked"].includes(task.status)) return NextResponse.json({ error: task.status === "in_review" ? "This task is awaiting human review. Approve it or request revisions before another AI run." : "Only queued or blocked tasks can be started by an AI employee." }, { status: 409 });
+  if (!["queued", "blocked"].includes(task.status) || (task.assigned_agent_id && task.assigned_agent_id !== agent.id)) return NextResponse.json({ error: task.status === "in_review" ? "This task is awaiting human review. Approve it or request revisions before another AI run." : "This task is not available to the selected AI employee." }, { status: 409 });
 
   const { data: run, error: runError } = await supabase.from("agent_runs").insert({
     organization_id: membership.organization_id, agent_id: agent.id, task_id: task.id,
