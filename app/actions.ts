@@ -37,6 +37,14 @@ export async function createTask(formData: FormData) {
   const departmentId = String(formData.get("department_id") ?? "") || null;
   const assignedAgentId = String(formData.get("assigned_agent_id") ?? "") || null;
   if (!title) return;
+  if (departmentId) {
+    const { data: department } = await supabase.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).maybeSingle();
+    if (!department) redirect("/?view=tasks&error=" + encodeURIComponent("Invalid department selection."));
+  }
+  if (assignedAgentId) {
+    const { data: agent } = await supabase.from("ai_agents").select("id").eq("id", assignedAgentId).eq("organization_id", organizationId).maybeSingle();
+    if (!agent) redirect("/?view=tasks&error=" + encodeURIComponent("Invalid AI employee selection."));
+  }
   const { data, error } = await supabase.from("tasks").insert({
     organization_id: organizationId, title, description: description || null,
     priority: ["low", "medium", "high", "urgent"].includes(priority) ? priority : "medium",
@@ -71,6 +79,10 @@ export async function createAgent(formData: FormData) {
   const instructions = String(formData.get("instructions") ?? "").trim();
   const modelName = String(formData.get("model_name") ?? "").trim();
   if (!name || !jobTitle) return;
+  if (departmentId) {
+    const { data: department } = await supabase.from("departments").select("id").eq("id", departmentId).eq("organization_id", organizationId).maybeSingle();
+    if (!department) redirect("/?view=agents&error=" + encodeURIComponent("Invalid department selection."));
+  }
   if (modelName && (!modelName.includes("/") || modelName.length > 120)) redirect("/?view=agents&error=" + encodeURIComponent("Use a valid AI Gateway model ID in provider/model format."));
   const { data, error } = await supabase.from("ai_agents").insert({
     organization_id: organizationId, department_id: departmentId, name, job_title: jobTitle,
