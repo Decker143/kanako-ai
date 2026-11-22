@@ -954,6 +954,10 @@ export type Database = {
         Args: { p_task_id: string; p_agent_id: string; p_organization_id: string; p_rationale?: string | null }
         Returns: Json
       }
+      approve_task_handoff: {
+        Args: { p_task_id: string; p_request_id: string; p_organization_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
