@@ -95,7 +95,7 @@ export async function POST(request: Request) {
           return review.decision === "approved";
         }).slice(0, 4).map(run => {
           const input = run.input && typeof run.input === "object" && !Array.isArray(run.input) ? run.input as Record<string, unknown> : {};
-          const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as Record<string, Json | undefined> : {};
+          const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as Record<string, unknown> : {};
           return { previous_task: input.task_title, approved_example: typeof output.text === "string" ? output.text.slice(0, 1400) : "" };
         })),
 
