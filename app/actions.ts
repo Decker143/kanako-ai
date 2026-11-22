@@ -180,15 +180,6 @@ export async function reviewAgentRun(formData: FormData) {
   }
 
   const nextTaskStatus = decision === "approved" ? "completed" : "queued";
-  const { data: updatedTask, error: taskError } = await supabase.from("tasks").update({
-    status: nextTaskStatus,
-    completed_at: decision === "approved" ? new Date().toISOString() : null,
-  }).eq("id", task.id).eq("organization_id", organizationId).eq("status", "in_review")
-    .select("id").maybeSingle();
-  if (taskError || !updatedTask) {
-    redirect("/?view=agents&error=" + encodeURIComponent("The task changed before the review could be saved. Refresh and try again."));
-  }
-
   const previousOutput = run.output && typeof run.output === "object" && !Array.isArray(run.output)
     ? run.output as { [key: string]: Json | undefined } : {};
   const reviewedAt = new Date().toISOString();
@@ -201,9 +192,18 @@ export async function reviewAgentRun(formData: FormData) {
     .select("id").maybeSingle();
 
   if (runError || !updatedRun) {
-    await supabase.from("tasks").update({ status: "in_review", completed_at: null })
-      .eq("id", task.id).eq("organization_id", organizationId).eq("status", nextTaskStatus);
-    redirect("/?view=agents&error=" + encodeURIComponent("Could not save the review record. The task was returned to review."));
+    redirect("/?view=agents&error=" + encodeURIComponent("Could not save the review record. Refresh and try again."));
+  }
+
+  const { data: updatedTask, error: taskError } = await supabase.from("tasks").update({
+    status: nextTaskStatus,
+    completed_at: decision === "approved" ? reviewedAt : null,
+  }).eq("id", task.id).eq("organization_id", organizationId).eq("status", "in_review")
+    .select("id").maybeSingle();
+  if (taskError || !updatedTask) {
+    await supabase.from("agent_runs").update({ output: previousOutput })
+      .eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded");
+    redirect("/?view=agents&error=" + encodeURIComponent("The task changed before the review could be applied. The review record was rolled back."));
   }
 
   await log(supabase, organizationId, user.id,
