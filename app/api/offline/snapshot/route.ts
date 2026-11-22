@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     Array.isArray(agent.capabilities) && agent.capabilities.includes("task_execution") && agent.capabilities.includes("local_execution")
   );
   const agentIds = agents.map(agent => agent.id);
-  const [{ data: memories }, { data: learningEvents }] = await Promise.all([
+  const [{ data: memories }, { data: learningEvents }, { data: previousRuns }] = await Promise.all([
     agentIds.length
       ? supabase.from("agent_memories").select("agent_id,memory_type,title,content,confidence")
         .eq("organization_id", organizationId).in("agent_id", agentIds).eq("status", "approved")
@@ -38,6 +38,11 @@ export async function GET(request: Request) {
         .eq("organization_id", organizationId).in("agent_id", agentIds)
         .order("created_at", { ascending: false }).limit(100)
       : Promise.resolve({ data: [] as {agent_id:string;event_type:string;feedback:string|null;lesson:string|null;created_at:string}[] }),
+    agentIds.length
+      ? supabase.from("agent_runs").select("agent_id,input,output,created_at")
+        .eq("organization_id", organizationId).in("agent_id", agentIds).eq("status", "succeeded")
+        .order("created_at", { ascending: false }).limit(50)
+      : Promise.resolve({ data: [] as {agent_id:string;input:unknown;output:unknown;created_at:string}[] }),
   ]);
 
   return NextResponse.json({
@@ -48,5 +53,9 @@ export async function GET(request: Request) {
     departments: departments ?? [],
     memories: memories ?? [],
     learningEvents: learningEvents ?? [],
+    previousRuns: (previousRuns ?? []).filter(run => {
+      const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as { review?: { decision?: string } } : {};
+      return output.review?.decision === "approved";
+    }).slice(0, 20),
   });
 }
