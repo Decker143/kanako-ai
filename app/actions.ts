@@ -498,7 +498,8 @@ export async function createProjectPlan(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim().slice(0, 180);
   const objective = String(formData.get("objective") ?? "").trim().slice(0, 4000);
   const rawTasks = String(formData.get("tasks") ?? "").trim();
-  const priorityDefault = String(formData.get("priority") ?? "medium");
+  const requestedDefaultPriority = String(formData.get("priority") ?? "medium").toLowerCase();
+  const priorityDefault = ["low","medium","high","urgent"].includes(requestedDefaultPriority) ? requestedDefaultPriority : "medium";
   if (!title || !objective || !rawTasks) redirect("/?view=reports&error=" + encodeURIComponent("Add a project title, objective, and at least one task."));
   const tasks = rawTasks.split("\n").map(line => line.trim()).filter(Boolean).slice(0, 40).map((line, index) => {
     const [taskTitle, departmentName = "", priority = priorityDefault, description = ""] = line.split("|").map(value => value.trim());
@@ -530,18 +531,20 @@ export async function approveProjectPlan(formData: FormData) {
   if (content.plan_status !== "pending_approval" || !Array.isArray(content.tasks) || !content.tasks.length) {
     redirect("/?view=reports&error=" + encodeURIComponent("This plan is no longer awaiting approval or has no tasks."));
   }
+  const { data: departments } = await supabase.from("departments").select("id,name").eq("organization_id", organizationId);
+  const departmentMap = new Map((departments ?? []).map(item => [item.name.toLowerCase(), item.id]));
+  const unknownDepartment = content.tasks.find(item => item.department_name && !departmentMap.has(item.department_name.toLowerCase()));
+  if (unknownDepartment) redirect("/?view=reports&error=" + encodeURIComponent("Unknown department: " + unknownDepartment.department_name + ". Edit the proposal and use an exact workspace department name."));
   const { data: claimed, error: claimError } = await supabase.from("reports").update({
     content: { ...content, plan_status: "processing", approved_at: new Date().toISOString(), approved_by: user.id },
   }).eq("id", plan.id).eq("organization_id", organizationId).eq("content->>plan_status", "pending_approval").select("id").maybeSingle();
   if (claimError || !claimed) redirect("/?view=reports&error=" + encodeURIComponent("This plan was already handled. Refresh the page."));
-  const { data: departments } = await supabase.from("departments").select("id,name").eq("organization_id", organizationId);
-  const departmentMap = new Map((departments ?? []).map(item => [item.name.toLowerCase(), item.id]));
   const rows = content.tasks.map(item => ({
     organization_id: organizationId,
     title: item.title,
     description: item.description || null,
     priority: ["low","medium","high","urgent"].includes(item.priority ?? "") ? item.priority : "medium",
-    department_id: item.department_name ? departmentMap.get(item.department_name.toLowerCase()) ?? null : null,
+    department_id: item.department_name ? departmentMap.get(item.department_name.toLowerCase())! : null,
     status: "queued",
     created_by: user.id,
     metadata: { project_plan_id: plan.id, project_plan_title: plan.title, plan_order: item.order ?? null },
