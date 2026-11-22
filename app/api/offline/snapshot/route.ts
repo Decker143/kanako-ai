@@ -11,8 +11,11 @@ export async function GET(request: Request) {
   const organizationId = new URL(request.url).searchParams.get("organizationId");
   if (!organizationId) return NextResponse.json({ error: "Select a workspace first." }, { status: 400 });
   const { data: membership } = await supabase.from("organization_members")
-    .select("organization_id").eq("organization_id", organizationId).eq("user_id", user.id).maybeSingle();
+    .select("organization_id,role").eq("organization_id", organizationId).eq("user_id", user.id).maybeSingle();
   if (!membership) return NextResponse.json({ error: "You do not have access to this workspace." }, { status: 403 });
+  if (!["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Only workspace owners or admins can prepare offline AI employee execution." }, { status: 403 });
+  }
 
   const [{ data: agentRows }, { data: tasks }, { data: departments }] = await Promise.all([
     supabase.from("ai_agents").select("id,name,job_title,instructions,department_id,capabilities")
