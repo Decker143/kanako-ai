@@ -1,0 +1,57 @@
+create or replace function public.create_organization(org_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  new_org_id uuid;
+  caller_id uuid;
+begin
+  caller_id := auth.uid();
+  if caller_id is null then
+    raise exception 'Authentication required';
+  end if;
+  if org_name is null or length(trim(org_name)) = 0 or length(trim(org_name)) > 120 then
+    raise exception 'Organization name must be between 1 and 120 characters';
+  end if;
+
+  insert into public.organizations (name, created_by)
+  values (trim(org_name), caller_id)
+  returning id into new_org_id;
+
+  insert into public.organization_members (organization_id, user_id, role)
+  values (new_org_id, caller_id, 'owner');
+
+  insert into public.departments (organization_id, name, description)
+  values
+    (new_org_id, 'Operations', 'Daily operations, coordination, and execution'),
+    (new_org_id, 'Human Resources', 'Recruitment, onboarding, and people operations'),
+    (new_org_id, 'Customer Service', 'Customer support and service quality'),
+    (new_org_id, 'Sales', 'Lead management, sales pipeline, and conversion'),
+    (new_org_id, 'Marketing', 'Brand, content, campaigns, and growth'),
+    (new_org_id, 'Finance', 'Budgets, expenses, and financial reporting'),
+    (new_org_id, 'IT & Development', 'Systems, software, integrations, and technical support'),
+    (new_org_id, 'Analytics & QA', 'Performance measurement, audits, and quality assurance');
+
+  insert into public.ai_agents (
+    organization_id, name, job_title, description, instructions,
+    status, capabilities, configuration, created_by
+  ) values (
+    new_org_id,
+    'Kanako',
+    'AI Chief Executive Officer',
+    'Central coordinator for the virtual company. This profile remains a draft until an approved model is configured.',
+    'Coordinate the organization by reviewing operational context, clarifying priorities, preparing plans, and delegating tasks to activated AI employees. Do not claim external actions were completed unless an authorized tool confirms success. Require human approval before spending money, contacting external people, changing production systems, or performing irreversible actions. Be transparent about missing information and risks.',
+    'draft',
+    '[]'::jsonb,
+    '{}'::jsonb,
+    caller_id
+  );
+
+  return new_org_id;
+end;
+$function$;
+
+revoke execute on function public.create_organization(text) from public, anon;
+grant execute on function public.create_organization(text) to authenticated;
