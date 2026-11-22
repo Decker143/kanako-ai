@@ -161,6 +161,9 @@ export async function reviewAgentRun(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
   const note = String(formData.get("review_note") ?? "").trim().slice(0, 1000);
   if (!runId || !["approved", "changes_requested"].includes(decision)) return;
+  if (decision === "changes_requested" && !note) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Add a review note explaining what needs to be revised."));
+  }
 
   const { data: run } = await supabase.from("agent_runs")
     .select("id,task_id,status,output,agent_id")
