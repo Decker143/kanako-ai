@@ -39,6 +39,7 @@ Kanako belongs to CEO Office. Departments should support multiple specialized em
 - Clear online/offline and AI-provider status.
 - Recent decisions, activity, and upcoming scheduled work.
 - [Implemented] Deterministic owner-facing executive brief with overdue/blocked/stale tasks, aging approvals, failed runs, workforce capacity, and high-priority backlog signals. Owners/admins can save a structured report with metrics, department workload, prioritized recommendations, and coverage notes. AI-generated strategic analysis remains gated on explicit AI provider approval.
+- [Implemented foundation] Owner-authored project-plan proposals with objective and task breakdown, optional department/priority metadata, owner/admin approval, and queued task creation. This is not yet AI-generated planning; employee assignment and execution are separate and remain gated.
 
 ### B. Kanako AI CEO
 - Understand owner requests and convert them into plans, subtasks, priorities, and department assignments.
@@ -193,6 +194,7 @@ Future workforce capabilities:
 
 ## Immediate next steps
 1. Verify the nine-department migration and new-organization function in a disposable test workspace or controlled test transaction.
+2. End-to-end test project-plan proposal, approval, task creation, duplicate-approval protection, and invalid department handling in a real workspace.
 2. [Partially complete] Add a verified active-workspace selector and shared organization context across the dashboard, server actions, chat, CEO delegation, AI execution, and workflows. Still verify offline behavior across workspace switching.
 3. [Foundation implemented] CEO Command Center shows workforce readiness, overdue/blocked/unassigned work, failed workflow runs, and executive alerts. Continue with department health, workload balancing, run outcomes, and pending approvals.
 4. [Implemented foundation] Employee profiles now store skill tags, maximum concurrent tasks, and availability. CEO delegation ranks eligible employees by skill fit, department, capacity, and recent outcomes; an atomic RLS-respecting database function rechecks capacity before assignment. Next: fuller performance history and load-balancing tests.
