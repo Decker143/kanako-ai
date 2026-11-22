@@ -39,8 +39,8 @@ export async function POST(request: Request) {
   );
 
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
-  if (["completed", "cancelled"].includes(task.status)) {
-    return NextResponse.json({ error: "Closed tasks cannot be delegated." }, { status: 409 });
+  if (!["queued", "blocked"].includes(task.status)) {
+    return NextResponse.json({ error: task.status === "in_review" ? "This task is awaiting human review and cannot be reassigned until the review is resolved." : "Only queued or blocked tasks can be delegated." }, { status: 409 });
   }
   if (!employees?.length) {
     return NextResponse.json({ error: "No active AI employees with a configured model and Task execution permission are available for delegation." }, { status: 409 });
