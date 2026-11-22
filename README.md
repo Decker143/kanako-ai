@@ -56,3 +56,14 @@ GitHub Actions runs:
 ## Deployment policy
 
 The repository is linked to the existing Vercel project `kanako-ai`. Automatic Git deployments are disabled while development and review continue. Do not deploy to production until the owner explicitly approves.
+
+
+## AI employee permissions
+
+AI employee capabilities are owner/admin-managed and enforced by the server at execution time:
+
+- `task_execution`: required before an employee can be activated or run a task.
+- `knowledge_read`: allows the employee run to receive organization Knowledge Base documents.
+- `department_read`: allows the employee run to receive department descriptions.
+
+New employees start with no capabilities. Permissions are an allowlist; unselected context is not sent to the model. A database partial unique index prevents more than one running AI execution for the same task in an organization. Model execution remains disabled until explicitly approved.
