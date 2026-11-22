@@ -41,10 +41,10 @@ export async function POST(request: Request) {
     const model = typeof item.model === "string" ? item.model.slice(0, 120) : "local-model";
     if (!isUuid(id) || !isUuid(agentId) || !isUuid(taskId) || !output) continue;
 
-    const { data: existing } = await supabase.from("agent_runs").select("id,status")
+    const { data: existing } = await supabase.from("agent_runs").select("id,status,task_id,agent_id")
       .eq("organization_id", organizationId).filter("output->>offline_client_id", "eq", id).maybeSingle();
     if (existing) {
-      if (existing.status !== "succeeded") {
+      if (existing.status !== "succeeded" || existing.task_id !== taskId || existing.agent_id !== agentId) {
         return NextResponse.json({ error: "A previous sync attempt for one local run did not complete. Inspect that run in AI Workforce before retrying." }, { status: 409 });
       }
       syncedIds.push(id);
