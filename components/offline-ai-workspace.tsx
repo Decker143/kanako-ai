@@ -394,6 +394,6 @@ export function OfflineAIWorkspace() {
       <div className="offline-task-list">{tasks.map(task=><div className="offline-task" key={task.id}><div className="row-between"><strong>{task.title}</strong><span className="pill">{task.syncedAt?"Synced":"Local only"}</span></div>{task.description&&<p className="muted" style={{fontSize:12,margin:"6px 0 0"}}>{task.description}</p>}</div>)}{!tasks.length&&<div className="empty">No offline tasks saved yet.</div>}</div>
     </div>
     {syncMessage&&<p className="muted" style={{fontSize:11}}>{syncMessage}</p>}
-    <div className="notice">Offline mode uses a cached workspace snapshot and device-local model. Web research, shared live data, external integrations, and approvals need an internet connection. Syncing an offline employee result creates a cloud AI run in the human-review queue; it does not complete the task automatically. Browser storage may be cleared or evicted, so sync important work when possible.</div>
+    <div className="notice">Offline mode uses a cached workspace snapshot and device-local model. Web research, shared live data, external integrations, and approvals need an internet connection. Syncing an offline employee result creates a cloud AI run in the human-review queue; it does not complete the task automatically. Cached workspace data stays in this browser profile; use a trusted device, not a shared/public computer. Browser storage may be cleared or evicted, so sync important work when possible.</div>
   </div>;
 }
