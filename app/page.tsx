@@ -61,7 +61,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     supabase.from("reports").select("id,title,report_type,content,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}),
     supabase.from("activity_logs").select("id,action,entity_type,created_at,details").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(50),
     supabase.from("conversations").select("id,title,created_at").eq("organization_id",orgId).order("updated_at",{ascending:false}),
-    supabase.from("agent_runs").select("id,agent_id,task_id,status,error,created_at,started_at,finished_at,output").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(50),
+    supabase.from("agent_runs").select("id,agent_id,task_id,status,error,created_at,started_at,finished_at,output").eq("organization_id",orgId).order("created_at",{ascending:false}).order("id",{ascending:false}).limit(50),
     supabase.from("workflow_runs").select("id,workflow_id,status,error,created_at,output").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(30),
   ]);
 
