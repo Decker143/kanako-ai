@@ -26,6 +26,9 @@ export function createWebResearchTool() {
       url.searchParams.set("q", safeQuery);
       url.searchParams.set("country", "PH");
       url.searchParams.set("search_lang", "en");
+      url.searchParams.set("safesearch", "moderate");
+      url.searchParams.set("count", "8");
+      url.searchParams.set("maximum_number_of_urls", "6");
       url.searchParams.set("maximum_number_of_tokens", "4000");
       url.searchParams.set("context_threshold_mode", "balanced");
 
@@ -43,11 +46,20 @@ export function createWebResearchTool() {
       const data = await response.json() as {
         grounding?: { generic?: Array<{ title?: string; url?: string; snippets?: string[] }> };
       };
-      return (data.grounding?.generic ?? []).slice(0, 6).map(item => ({
-        title: (item.title ?? "Untitled source").slice(0, 240),
-        url: item.url ?? "",
-        excerpts: (item.snippets ?? []).slice(0, 3).map(snippet => snippet.slice(0, 1800)),
-      })).filter(item => item.url.startsWith("https://"));
+      return (data.grounding?.generic ?? []).slice(0, 6).flatMap(item => {
+        let sourceUrl: URL;
+        try {
+          sourceUrl = new URL(item.url ?? "");
+        } catch {
+          return [];
+        }
+        if (sourceUrl.protocol !== "https:" || sourceUrl.username || sourceUrl.password) return [];
+        return [{
+          title: (item.title ?? "Untitled source").slice(0, 240),
+          url: sourceUrl.toString().slice(0, 2000),
+          excerpts: (item.snippets ?? []).filter((snippet): snippet is string => typeof snippet === "string").slice(0, 3).map(snippet => snippet.slice(0, 1800)),
+        }];
+      });
     },
   });
 }
