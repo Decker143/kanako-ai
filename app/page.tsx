@@ -96,7 +96,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
           <div className="panel stat"><div className="muted">Open Tasks</div><strong>{openTasks}</strong><span className="muted">Live database records</span></div>
           <div className="panel stat"><div className="muted">Pending Approvals</div><strong>{pendingApprovals}</strong><span className="muted">Awaiting human review</span></div>
         </div>
-        <div className="section-head"><h2>Kanako oversight &amp; AI performance</h2><span className="pill">Live execution records</span></div>
+        <div className="section-head"><h2>Kanako oversight &amp; AI performance</h2><span className="pill">Latest 50 run records</span></div>
         <div className="grid">
           <div className="panel stat"><div className="muted">Awaiting human review</div><strong>{(agentRuns??[]).filter(run=>run.status==="succeeded"&&(tasks??[]).some(t=>t.id===run.task_id&&t.status==="in_review")).length}</strong><span className="muted">AI outputs needing a decision</span></div>
           <div className="panel stat"><div className="muted">Failed AI runs</div><strong>{(agentRuns??[]).filter(run=>run.status==="failed").length}</strong><span className="muted">Require investigation</span></div>
