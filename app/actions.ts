@@ -173,7 +173,7 @@ export async function reviewAgentRun(formData: FormData) {
   }
   const { data: latestRun } = await supabase.from("agent_runs").select("id")
     .eq("organization_id", organizationId).eq("task_id", run.task_id).eq("status", "succeeded")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).maybeSingle();
   if (latestRun?.id !== run.id) {
     redirect("/?view=agents&error=" + encodeURIComponent("A newer AI run exists for this task. Review the latest output instead."));
   }
