@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generateText, stepCountIs } from "ai";
 import { createWebResearchTool, isWebResearchEnabled } from "@/lib/ai/web-research";
 import { createClient } from "@/lib/supabase/server";
+import { getOrganizationContext } from "@/lib/supabase/organization-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -11,8 +12,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
 
-  const { data: membership } = await supabase.from("organization_members")
-    .select("organization_id,role").eq("user_id", user.id).limit(1).maybeSingle();
+  const { membership } = await getOrganizationContext(supabase, user.id);
   if (!membership) return NextResponse.json({ error: "No organization workspace was found." }, { status: 403 });
   if (process.env.KANAKO_AI_EXECUTION_ENABLED === "true" && !["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only workspace owners and admins can use billable AI execution." }, { status: 403 });
