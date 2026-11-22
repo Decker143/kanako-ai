@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { AuthForm } from "@/components/auth-form";
 import { createClient } from "@/lib/supabase/server";
 import {
   createAgent, createApproval, createConversation, createKnowledgeDocument,
-  createReport, createTask, createWorkflow, decideApproval, saveChatMessage,
+  createReport, createTask, createWorkflow, decideApproval,
   signOut, updateAgentStatus, updateTaskStatus, updateWorkflowStatus,
 } from "@/app/actions";
+import { ChatPanel } from "@/components/chat-panel";
 
 const nav = [
   ["overview","Overview","◫"],["agents","AI Workforce","✧"],["departments","Departments","▦"],
@@ -121,7 +124,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
       {view==="chat"&&<>
         <div className="section-head"><h2>AI Office Chat</h2><span className="pill">AI runtime not activated</span></div>
         <div className="chat-layout"><div className="panel chat-list"><form action={createConversation}><input className="field" name="title" placeholder="Conversation title"/><button className="btn" style={{width:"100%",marginTop:8}}>New conversation</button></form><div className="nav-label">CONVERSATIONS</div>{(conversations??[]).map(c=><Link key={c.id} className={`conversation-link ${activeConversation?.id===c.id?"active":""}`} href={`/?view=chat&conversation=${c.id}`}>{c.title||"Untitled conversation"}</Link>)}</div>
-          <div className="panel chat-main">{activeConversation?<><h3>{activeConversation.title||"Conversation"}</h3><div className="message-list">{(messages??[]).map(m=><div className={`message ${m.role==="user"?"user-message":""}`} key={m.id}><div className="eyebrow">{m.role}</div><p>{m.content}</p></div>)}{!messages?.length&&<div className="empty">Start by saving a message in this conversation.</div>}</div><form action={saveChatMessage} className="form-stack"><input type="hidden" name="conversation_id" value={activeConversation.id}/><textarea className="field" name="content" rows={3} required placeholder="Write a message or instruction to keep in this conversation..."/><button className="btn">Save message</button></form></>:<div className="empty">Create a conversation to get started.</div>}</div></div>
+          <div className="panel chat-main">{activeConversation?<><h3>{activeConversation.title||"Conversation"}</h3><ChatPanel conversationId={activeConversation.id} initialMessages={messages??[]}/></>:<div className="empty">Create a conversation to get started.</div>}</div></div>
         <div className="notice" style={{marginTop:16}}>Messages are saved to your private organization workspace. AI-generated replies and tool execution are not enabled yet; we will activate them only after model access and usage costs are explicitly approved.</div>
       </>}
       {view==="reports"&&<>
