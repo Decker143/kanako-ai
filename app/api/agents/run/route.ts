@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const [{ data: agent }, { data: task }] = await Promise.all([
     supabase.from("ai_agents").select("id,name,job_title,instructions,model_name,status,department_id")
       .eq("id", body.agentId).eq("organization_id", membership.organization_id).maybeSingle(),
-    supabase.from("tasks").select("id,title,description,status,priority,department_id")
+    supabase.from("tasks").select("id,title,description,status,priority,department_id,assigned_agent_id")
       .eq("id", body.taskId).eq("organization_id", membership.organization_id).maybeSingle(),
   ]);
   if (!agent) return NextResponse.json({ error: "AI employee not found." }, { status: 404 });
@@ -38,10 +38,23 @@ export async function POST(request: Request) {
     status: "running", input: { task_title: task.title, task_description: task.description, priority: task.priority },
     started_at: new Date().toISOString(), created_by: user.id,
   }).select("id").single();
-  if (runError) return NextResponse.json({ error: "Could not create the agent run record." }, { status: 500 });
+  if (runError) {
+    if (runError.code === "23505") {
+      return NextResponse.json({ error: "This task already has an AI run in progress. Wait for it to finish before starting another." }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not create the agent run record." }, { status: 500 });
+  }
 
-  await supabase.from("tasks").update({ status: "in_progress", assigned_agent_id: agent.id })
-    .eq("id", task.id).eq("organization_id", membership.organization_id);
+  const { error: taskStartError } = await supabase.from("tasks").update({
+    status: "in_progress", assigned_agent_id: agent.id,
+  }).eq("id", task.id).eq("organization_id", membership.organization_id);
+  if (taskStartError) {
+    await supabase.from("agent_runs").update({
+      status: "failed", error: "Task could not be moved into the in-progress state.",
+      finished_at: new Date().toISOString(),
+    }).eq("id", run.id).eq("organization_id", membership.organization_id);
+    return NextResponse.json({ error: "The task could not be started. No AI work was run." }, { status: 409 });
+  }
 
   try {
     const [{ data: departments }, { data: knowledge }] = await Promise.all([
@@ -70,10 +83,11 @@ export async function POST(request: Request) {
     }).select("id").single();
     if (conversationError) throw conversationError;
 
-    await supabase.from("messages").insert([
+    const { error: messageError } = await supabase.from("messages").insert([
       { organization_id: membership.organization_id, conversation_id: conversation.id, role: "user", content: "Assigned task: " + task.title + "\n" + (task.description || ""), metadata: { agent_run_id: run.id } },
       { organization_id: membership.organization_id, conversation_id: conversation.id, role: "assistant", content: result.text, agent_id: agent.id, metadata: { agent_run_id: run.id, model: agent.model_name } },
     ]);
+    if (messageError) throw messageError;
 
     const { error: updateError } = await supabase.from("agent_runs").update({
       status: "succeeded", output: { text: result.text, model: agent.model_name, conversation_id: conversation.id },
@@ -94,7 +108,10 @@ export async function POST(request: Request) {
     await supabase.from("agent_runs").update({
       status: "failed", error: "AI provider execution failed.", finished_at: new Date().toISOString(),
     }).eq("id", run.id).eq("organization_id", membership.organization_id);
-    await supabase.from("tasks").update({ status: "queued" }).eq("id", task.id).eq("organization_id", membership.organization_id);
+    await supabase.from("tasks").update({
+      status: task.status,
+      assigned_agent_id: task.assigned_agent_id,
+    }).eq("id", task.id).eq("organization_id", membership.organization_id);
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
       action: "ai_agent.task_run_failed", entity_type: "agent_run", entity_id: run.id,
