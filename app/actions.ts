@@ -407,6 +407,90 @@ export async function createKnowledgeDocument(formData: FormData) {
   redirect("/?view=knowledge");
 }
 
+export async function generateExecutiveReport() {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) {
+    redirect("/?view=overview&error=" + encodeURIComponent("Only workspace owners and admins can generate executive reports."));
+  }
+
+  const [{ data: tasks }, { data: agents }, { data: approvals }, { data: workflowRuns }, { data: agentRuns }, { data: departments }] = await Promise.all([
+    supabase.from("tasks").select("id,title,status,priority,created_at,due_at,assigned_agent_id,department_id").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(200),
+    supabase.from("ai_agents").select("id,name,status,availability_status,max_concurrent_tasks").eq("organization_id", organizationId),
+    supabase.from("approvals").select("id,title,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(100),
+    supabase.from("workflow_runs").select("id,status,error,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(50),
+    supabase.from("agent_runs").select("id,agent_id,status,error,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(100),
+    supabase.from("departments").select("id,name").eq("organization_id", organizationId),
+  ]);
+
+  const now = Date.now();
+  const activeTasks = (tasks ?? []).filter(task => !["completed", "cancelled"].includes(task.status));
+  const overdue = activeTasks.filter(task => task.due_at && new Date(task.due_at).getTime() < now);
+  const blocked = activeTasks.filter(task => task.status === "blocked");
+  const stale = activeTasks.filter(task => ["queued", "in_progress", "blocked"].includes(task.status) && new Date(task.created_at).getTime() < now - 72 * 60 * 60 * 1000);
+  const unassigned = activeTasks.filter(task => !task.assigned_agent_id);
+  const pendingApprovals = (approvals ?? []).filter(item => item.status === "pending");
+  const agingApprovals = pendingApprovals.filter(item => new Date(item.created_at).getTime() < now - 48 * 60 * 60 * 1000);
+  const activeAgents = (agents ?? []).filter(agent => agent.status === "active");
+  const atCapacity = activeAgents.filter(agent => activeTasks.filter(task => task.assigned_agent_id === agent.id).length >= (agent.max_concurrent_tasks ?? 2));
+  const failedAgentRuns = (agentRuns ?? []).filter(run => run.status === "failed");
+  const failedWorkflowRuns = (workflowRuns ?? []).filter(run => run.status === "failed");
+  const alerts = [
+    ...overdue.map(task => ({ priority: "urgent", type: "overdue_task", title: task.title, recommendation: "Review due date, blocker, and owner; update the task plan." })),
+    ...blocked.map(task => ({ priority: "high", type: "blocked_task", title: task.title, recommendation: "Identify the missing dependency or decision and assign an owner for resolution." })),
+    ...stale.filter(task => !blocked.some(item => item.id === task.id)).map(task => ({ priority: "medium", type: "stale_task", title: task.title, recommendation: "Request a status update or revise the task scope and due date." })),
+    ...agingApprovals.map(item => ({ priority: "medium", type: "aging_approval", title: item.title, recommendation: "Review the pending approval and record an explicit decision." })),
+    ...failedAgentRuns.map(run => ({ priority: "high", type: "failed_agent_run", title: run.error || "AI employee run failed", recommendation: "Inspect the run output and logs before retrying." })),
+    ...failedWorkflowRuns.map(run => ({ priority: "high", type: "failed_workflow_run", title: run.error || "Workflow run failed", recommendation: "Inspect completed steps and partial side effects before rerunning." })),
+    ...atCapacity.map(agent => ({ priority: "medium", type: "employee_at_capacity", title: agent.name, recommendation: "Review workload distribution before assigning more tasks." })),
+  ].slice(0, 40);
+
+  const departmentWorkload = (departments ?? []).map(department => ({
+    department: department.name,
+    open_tasks: activeTasks.filter(task => task.department_id === department.id).length,
+    completed_tasks: (tasks ?? []).filter(task => task.department_id === department.id && task.status === "completed").length,
+  }));
+  const metrics = {
+    tasks_loaded: tasks?.length ?? 0,
+    open_tasks: activeTasks.length,
+    completed_tasks: (tasks ?? []).filter(task => task.status === "completed").length,
+    overdue_tasks: overdue.length,
+    blocked_tasks: blocked.length,
+    stale_tasks_72h: stale.length,
+    unassigned_tasks: unassigned.length,
+    high_or_urgent_open_tasks: activeTasks.filter(task => ["high", "urgent"].includes(task.priority)).length,
+    active_employees: activeAgents.length,
+    available_employees: activeAgents.filter(agent => agent.availability_status === "available").length,
+    employees_at_capacity: atCapacity.length,
+    pending_approvals: pendingApprovals.length,
+    approvals_older_than_48h: agingApprovals.length,
+    failed_agent_runs_loaded: failedAgentRuns.length,
+    failed_workflow_runs_loaded: failedWorkflowRuns.length,
+  };
+  const summary = alerts.length
+    ? "Executive review identified " + alerts.length + " attention items across task delivery, workforce capacity, approvals, and execution health. Review the prioritized recommendations before delegating or retrying work."
+    : "No immediate escalation signals were found in the latest records loaded. Continue routine monitoring and verify upcoming deadlines.";
+  const reportDate = new Date().toISOString().slice(0, 10);
+  const { data: report, error } = await supabase.from("reports").insert({
+    organization_id: organizationId,
+    title: "CEO Executive Operations Brief · " + reportDate,
+    report_type: "executive",
+    content: {
+      summary,
+      generated_mode: "deterministic_workspace_snapshot",
+      generated_at: new Date().toISOString(),
+      coverage_note: "Based on up to 200 latest tasks, 100 approvals, 100 AI runs, and 50 workflow runs. This is a rules-based snapshot, not an AI-generated analysis.",
+      metrics,
+      department_workload: departmentWorkload,
+      alerts,
+    },
+    generated_by: user.id,
+  }).select("id").single();
+  if (error || !report) redirect("/?view=overview&error=" + encodeURIComponent("Could not save the executive report."));
+  await log(supabase, organizationId, user.id, "ceo.executive_report_generated", "report", report.id);
+  revalidatePath("/");
+  redirect("/?view=reports&message=" + encodeURIComponent("Executive operations brief generated."));
+}
+
 export async function createReport(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const title = String(formData.get("title") ?? "").trim();
