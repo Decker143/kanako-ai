@@ -193,8 +193,8 @@ Future workforce capabilities:
 
 ## Immediate next steps
 1. Verify the nine-department migration and new-organization function in a disposable test workspace or controlled test transaction.
-2. Fix organization selection and scope consistency across CEO delegation, dashboard, offline snapshot, and all API routes.
-3. Build the CEO Command Center with department health, workload, overdue/blocked tasks, run outcomes, and pending approvals.
+2. [Partially complete] Add a verified active-workspace selector and shared organization context across the dashboard, server actions, chat, CEO delegation, AI execution, and workflows. Still verify offline behavior across workspace switching.
+3. [Foundation implemented] CEO Command Center shows workforce readiness, overdue/blocked/unassigned work, failed workflow runs, and executive alerts. Continue with department health, workload balancing, run outcomes, and pending approvals.
 4. Expand employee profiles to include skills, workload limits, availability, and performance review context.
 5. Add robust automated tests for task lifecycle, approvals, organization isolation, offline sync idempotency, and learning permissions.
 6. Only after those tests, continue with workflow triggers and advanced research.
