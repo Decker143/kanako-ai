@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createClient } from "@/lib/supabase/server";
+import { getOrganizationContext } from "@/lib/supabase/organization-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -15,8 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI execution is locked until model usage is explicitly approved." }, { status: 503 });
   }
 
-  const { data: membership } = await supabase.from("organization_members")
-    .select("organization_id,role").eq("user_id", user.id).limit(1).maybeSingle();
+  const { membership } = await getOrganizationContext(supabase, user.id);
   if (!membership || !["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only workspace owners and admins can request AI CEO delegation." }, { status: 403 });
   }
