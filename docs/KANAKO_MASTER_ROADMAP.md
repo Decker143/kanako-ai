@@ -38,7 +38,7 @@ Kanako belongs to CEO Office. Departments should support multiple specialized em
 - Company-wide operating summary: department health, active employees, open/blocked/overdue tasks, pending approvals, recent incidents, workflow health, and KPIs.
 - Clear online/offline and AI-provider status.
 - Recent decisions, activity, and upcoming scheduled work.
-- Owner-facing executive briefing generated from verified company records.
+- [Implemented] Deterministic owner-facing executive brief with overdue/blocked/stale tasks, aging approvals, failed runs, workforce capacity, and high-priority backlog signals. Owners/admins can save a structured report with metrics, department workload, prioritized recommendations, and coverage notes. AI-generated strategic analysis remains gated on explicit AI provider approval.
 
 ### B. Kanako AI CEO
 - Understand owner requests and convert them into plans, subtasks, priorities, and department assignments.
