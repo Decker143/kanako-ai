@@ -437,7 +437,7 @@ export async function generateExecutiveReport() {
   const alerts = [
     ...overdue.map(task => ({ priority: "urgent", type: "overdue_task", title: task.title, recommendation: "Review due date, blocker, and owner; update the task plan." })),
     ...blocked.map(task => ({ priority: "high", type: "blocked_task", title: task.title, recommendation: "Identify the missing dependency or decision and assign an owner for resolution." })),
-    ...stale.filter(task => !blocked.some(item => item.id === task.id)).map(task => ({ priority: "medium", type: "stale_task", title: task.title, recommendation: "Request a status update or revise the task scope and due date." })),
+    ...stale.filter(task => !blocked.some(item => item.id === task.id)).map(task => ({ priority: "medium", type: "stale_task", title: task.title, recommendation: "Review the task created 72+ hours ago; request a status update or revise its scope and due date." })),
     ...agingApprovals.map(item => ({ priority: "medium", type: "aging_approval", title: item.title, recommendation: "Review the pending approval and record an explicit decision." })),
     ...failedAgentRuns.map(run => ({ priority: "high", type: "failed_agent_run", title: run.error || "AI employee run failed", recommendation: "Inspect the run output and logs before retrying." })),
     ...failedWorkflowRuns.map(run => ({ priority: "high", type: "failed_workflow_run", title: run.error || "Workflow run failed", recommendation: "Inspect completed steps and partial side effects before rerunning." })),
