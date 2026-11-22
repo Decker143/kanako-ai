@@ -96,6 +96,27 @@ export async function createAgent(formData: FormData) {
   redirect("/?view=agents");
 }
 
+export async function updateAgentCapabilities(formData: FormData) {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Only workspace owners and admins can change AI employee permissions."));
+  }
+  const id = String(formData.get("agent_id") ?? "");
+  const requested = formData.getAll("capabilities").map(value => String(value));
+  const allowed = new Set(["task_execution", "knowledge_read", "department_read"]);
+  const capabilities = [...new Set(requested)].filter(value => allowed.has(value));
+  if (!id) return;
+  const { data: agent } = await supabase.from("ai_agents").select("id").eq("id", id)
+    .eq("organization_id", organizationId).maybeSingle();
+  if (!agent) redirect("/?view=agents&error=" + encodeURIComponent("AI employee not found."));
+  const { error } = await supabase.from("ai_agents").update({ capabilities }).eq("id", id)
+    .eq("organization_id", organizationId);
+  if (error) redirect("/?view=agents&error=" + encodeURIComponent(error.message));
+  await log(supabase, organizationId, user.id, "agent.capabilities_updated", "ai_agent", id);
+  revalidatePath("/");
+  redirect("/?view=agents");
+}
+
 export async function updateAgentStatus(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const id = String(formData.get("agent_id") ?? "");
@@ -103,8 +124,10 @@ export async function updateAgentStatus(formData: FormData) {
   if (!id || !["draft", "paused", "active"].includes(status)) return;
   if (status === "active") {
     if (process.env.KANAKO_AI_EXECUTION_ENABLED !== "true") redirect("/?view=agents&error=" + encodeURIComponent("AI execution is locked until model usage is approved."));
-    const { data: agent } = await supabase.from("ai_agents").select("model_name").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    const { data: agent } = await supabase.from("ai_agents").select("model_name,capabilities").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     if (!agent?.model_name) redirect("/?view=agents&error=" + encodeURIComponent("Add an AI Gateway model ID before activating this employee."));
+    const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
+    if (!capabilities.includes("task_execution")) redirect("/?view=agents&error=" + encodeURIComponent("Grant the Task execution permission before activating this employee."));
   }
   const { error } = await supabase.from("ai_agents").update({ status }).eq("id", id).eq("organization_id", organizationId);
   if (!error) await log(supabase, organizationId, user.id, "agent.status_updated", "ai_agent", id);
