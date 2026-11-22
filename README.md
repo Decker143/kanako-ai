@@ -72,3 +72,6 @@ New employees start with no capabilities. Permissions are an allowlist; unselect
 ## Human review of AI work
 
 AI employee task outputs enter `in_review` after a successful model run. Workspace owners and admins can approve the result (which completes the task) or request revisions (which returns the task to the queue). Review decisions, reviewer identity, timestamps, and optional notes are stored with the run output and included in activity logs. The regular task status form cannot bypass an outstanding AI review. A database trigger also blocks direct API/database completion unless the latest successful AI run has an explicit approved decision. A revision request returns the task to the queue; it must be re-run and approved before completion.
+
+
+AI employees can only start tasks in `queued` or `blocked` status. Tasks in `in_review` cannot be rerun or reassigned; an owner/admin must approve the current output or request revisions first. A revision returns the task to `queued`, where a new execution can be started.
