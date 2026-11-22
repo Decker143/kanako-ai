@@ -67,3 +67,8 @@ AI employee capabilities are owner/admin-managed and enforced by the server at e
 - `department_read`: allows the employee run to receive department descriptions.
 
 New employees start with no capabilities. Permissions are an allowlist; unselected context is not sent to the model. A database partial unique index prevents more than one running AI execution for the same task in an organization. Model execution remains disabled until explicitly approved.
+
+
+## Human review of AI work
+
+AI employee task outputs enter `in_review` after a successful model run. Workspace owners and admins can approve the result (which completes the task) or request revisions (which returns the task to the queue). Review decisions, reviewer identity, timestamps, and optional notes are stored with the run output and included in activity logs. The regular task status form cannot bypass an outstanding AI review.
