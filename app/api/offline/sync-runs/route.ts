@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       supabase.from("tasks").select("id,title,description,status,assigned_agent_id")
         .eq("id", taskId).eq("organization_id", organizationId).maybeSingle(),
     ]);
-    if (!agent || agent.status !== "active" || !Array.isArray(agent.capabilities) || !agent.capabilities.includes("task_execution")) {
+    if (!agent || !["active", "draft"].includes(agent.status) || !Array.isArray(agent.capabilities) || !agent.capabilities.includes("task_execution") || !agent.capabilities.includes("local_execution")) {
       return NextResponse.json({ error: "An offline result refers to an employee who is no longer active or authorized." }, { status: 409 });
     }
     if (!task || !["queued", "blocked"].includes(task.status) || (task.assigned_agent_id && task.assigned_agent_id !== agentId)) {
