@@ -85,12 +85,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "An offline AI result could not be recorded. Successfully synced items can safely be retried." }, { status: 500 });
     }
 
-    const { error: taskError } = await supabase.from("tasks").update({
+    const { data: updatedTask, error: taskError } = await supabase.from("tasks").update({
       status: "in_review",
       assigned_agent_id: agentId,
       completed_at: null,
-    }).eq("id", taskId).eq("organization_id", organizationId).in("status", ["queued", "blocked"]);
-    if (taskError) {
+    }).eq("id", taskId).eq("organization_id", organizationId).in("status", ["queued", "blocked"])
+      .select("id").maybeSingle();
+    if (taskError || !updatedTask) {
       await supabase.from("agent_runs").update({
         status: "failed",
         error: "Offline result was recorded but the task could not enter human review.",
