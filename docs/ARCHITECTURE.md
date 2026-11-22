@@ -61,6 +61,13 @@ Approval is required before:
 - Dashboard queries, server actions, chat, CEO delegation, AI task execution, and workflow execution use the same resolved workspace context.
 - Offline sync continues to accept an organization ID from the local queue only after checking that the signed-in user is a member of that exact organization.
 
+## CEO operational monitoring and reports
+
+- The Command Center derives operational signals from workspace records: overdue and blocked work, stale tasks (72+ hours), pending approvals older than 48 hours, failed employee/workflow runs, high-priority backlog, and employees at configured capacity.
+- Alerts link to the relevant workspace module. These are deterministic indicators, not claims that Kanako has autonomously investigated or resolved an issue.
+- Owners/admins can generate a saved executive operations brief. It records the metrics, department workload, prioritized recommendations, timestamp, and record-coverage limits used for the snapshot.
+- Report generation is rules-based and does not call an AI provider. It does not execute recommendations, approve requests, retry failed work, or contact external parties.
+
 ## AI workforce profiles and assignment
 
 - Each AI employee profile stores owner-maintained skill tags, a maximum concurrent-task capacity, and an explicit availability state (`available`, `busy`, or `unavailable`).
