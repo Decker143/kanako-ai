@@ -65,6 +65,150 @@ export type Database = {
           },
         ]
       }
+      agent_learning_events: {
+        Row: {
+          agent_id: string
+          agent_run_id: string | null
+          created_at: string
+          created_by: string | null
+          event_type: string
+          feedback: string | null
+          id: string
+          lesson: string | null
+          metadata: Json
+          organization_id: string
+          task_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          agent_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          feedback?: string | null
+          id?: string
+          lesson?: string | null
+          metadata?: Json
+          organization_id: string
+          task_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          agent_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          feedback?: string | null
+          id?: string
+          lesson?: string | null
+          metadata?: Json
+          organization_id?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_learning_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_learning_events_agent_run_id_fkey"
+            columns: ["agent_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_learning_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_learning_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_memories: {
+        Row: {
+          agent_id: string
+          confidence: number
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          memory_type: string
+          organization_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_run_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          confidence?: number
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          memory_type: string
+          organization_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_run_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          confidence?: number
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          memory_type?: string
+          organization_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_run_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_memories_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_memories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_memories_source_run_id_fkey"
+            columns: ["source_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_runs: {
         Row: {
           agent_id: string
