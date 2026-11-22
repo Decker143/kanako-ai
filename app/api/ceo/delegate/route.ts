@@ -24,21 +24,25 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as { taskId?: string } | null;
   if (!body?.taskId) return NextResponse.json({ error: "Select a task to delegate." }, { status: 400 });
 
-  const [{ data: task }, { data: employees }, { data: departments }, { data: ceo }] = await Promise.all([
+  const [{ data: task }, { data: employeeRecords }, { data: departments }, { data: ceo }] = await Promise.all([
     supabase.from("tasks").select("id,title,description,priority,status,department_id,assigned_agent_id")
       .eq("id", body.taskId).eq("organization_id", membership.organization_id).maybeSingle(),
-    supabase.from("ai_agents").select("id,name,job_title,description,instructions,department_id,model_name,status")
+    supabase.from("ai_agents").select("id,name,job_title,description,instructions,department_id,model_name,status,capabilities")
       .eq("organization_id", membership.organization_id).eq("status", "active").not("model_name", "is", null),
     supabase.from("departments").select("id,name,description").eq("organization_id", membership.organization_id),
     supabase.from("ai_agents").select("name,instructions").eq("organization_id", membership.organization_id)
       .eq("job_title", "AI Chief Executive Officer").limit(1).maybeSingle(),
   ]);
+  const employees = (employeeRecords ?? []).filter(employee =>
+    Array.isArray(employee.capabilities) && employee.capabilities.includes("task_execution")
+  );
+
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   if (["completed", "cancelled"].includes(task.status)) {
     return NextResponse.json({ error: "Closed tasks cannot be delegated." }, { status: 409 });
   }
   if (!employees?.length) {
-    return NextResponse.json({ error: "No active AI employees with configured models are available for delegation." }, { status: 409 });
+    return NextResponse.json({ error: "No active AI employees with a configured model and Task execution permission are available for delegation." }, { status: 409 });
   }
 
   try {
