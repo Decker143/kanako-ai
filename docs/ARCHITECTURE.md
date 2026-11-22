@@ -53,6 +53,14 @@ Approval is required before:
 - Making irreversible changes or deleting important records.
 - Accessing or exporting sensitive information beyond the employee's granted scope.
 
+## Workspace selection and isolation
+
+- The active workspace is selected through a server-managed, HTTP-only `kanako_active_org` cookie.
+- The cookie is never treated as authorization by itself: every server action and API route resolves it against the signed-in user's `organization_members` rows.
+- If the cookie is missing or stale, the app falls back to the first workspace the user is actually a member of.
+- Dashboard queries, server actions, chat, CEO delegation, AI task execution, and workflow execution use the same resolved workspace context.
+- Offline sync continues to accept an organization ID from the local queue only after checking that the signed-in user is a member of that exact organization.
+
 ## Cost and deployment controls
 
 - Keep cloud AI execution disabled until the owner explicitly approves provider/model and budget.
