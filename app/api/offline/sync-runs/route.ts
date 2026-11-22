@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     if (!agent || agent.status !== "active" || !Array.isArray(agent.capabilities) || !agent.capabilities.includes("task_execution")) {
       return NextResponse.json({ error: "An offline result refers to an employee who is no longer active or authorized." }, { status: 409 });
     }
-    if (!task || !["queued", "blocked"].includes(task.status)) {
+    if (!task || !["queued", "blocked"].includes(task.status) || (task.assigned_agent_id && task.assigned_agent_id !== agentId)) {
       return NextResponse.json({ error: "An offline result refers to a task that is no longer available for execution." }, { status: 409 });
     }
 
