@@ -1,5 +1,4 @@
 const CACHE_NAME = "kanako-offline-shell-v1";
-const APP_SHELL = ["/offline", "/manifest.webmanifest", "/kanako-icon.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
@@ -9,7 +8,7 @@ self.addEventListener("install", event => {
     if (!response.ok) throw new Error("Could not cache the offline workspace.");
     const html = await response.clone().text();
     await cache.put("/offline", response);
-    const assets = [...html.matchAll(/(?:src|href)="([^"]*\\/_next\\/static\\/[^"]+)"/g)]
+    const assets = [...html.matchAll(/(?:src|href)="([^"]*\/_next\/static\/[^"]+)"/g)]
       .map(match => match[1])
       .filter(asset => asset.startsWith("/") && !asset.startsWith("//"));
     await Promise.allSettled(assets.map(asset => cache.add(asset)));
