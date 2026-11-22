@@ -26,6 +26,48 @@ async function log(supabase: Awaited<ReturnType<typeof createClient>>, organizat
   });
 }
 
+
+export async function scanTaskRisks() {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) redirect("/?view=tasks&error=" + encodeURIComponent("Only an owner or admin can run the CEO risk scan."));
+  const [{ data: tasks, error: taskError }, { data: updates, error: updateError }, { data: runs, error: runError }, { data: departments }] = await Promise.all([
+    supabase.from("tasks").select("id,title,status,priority,due_at,updated_at,assigned_agent_id,department_id").eq("organization_id", organizationId).order("updated_at", { ascending: true }).limit(200),
+    supabase.from("task_updates").select("id,task_id,event_type,message,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(500),
+    supabase.from("agent_runs").select("id,task_id,status,error,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(200),
+    supabase.from("departments").select("id,name").eq("organization_id", organizationId),
+  ]);
+  if (taskError || updateError || runError) redirect("/?view=tasks&error=" + encodeURIComponent("CEO risk scan could not load all required workspace records."));
+  const now = Date.now();
+  const open = (tasks ?? []).filter(task => !["completed", "cancelled"].includes(task.status));
+  const alerts: Array<{task_id:string;title:string;priority:string;type:string;detail:string;recommended_action:string;department:string}> = [];
+  for (const task of open) {
+    const taskUpdates = (updates ?? []).filter(update => update.task_id === task.id);
+    const latestUpdate = taskUpdates[0];
+    const latestRun = (runs ?? []).find(run => run.task_id === task.id);
+    const department = (departments ?? []).find(item => item.id === task.department_id)?.name ?? "Unassigned";
+    if (latestUpdate?.event_type === "blocker") alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"reported_blocker",detail:latestUpdate.message,recommended_action:"Review the blocker and decide whether to provide resources, change scope, or approve a handoff.",department });
+    if (task.due_at && new Date(task.due_at).getTime() < now) alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"overdue",detail:"Due date passed on " + new Date(task.due_at).toLocaleString("en"),recommended_action:"Review the deadline and update the delivery plan.",department });
+    const lastActivity = Math.max(new Date(task.updated_at).getTime(), latestUpdate ? new Date(latestUpdate.created_at).getTime() : 0, latestRun ? new Date(latestRun.created_at).getTime() : 0);
+    if (["queued","in_progress","blocked"].includes(task.status) && now - lastActivity > 72*60*60*1000) alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"stale_72h",detail:"No task, progress-update, or AI-run activity for more than 72 hours.",recommended_action:"Ask the assigned employee for a status update or reassign after checking capacity.",department });
+    if (latestRun?.status === "failed") alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"latest_ai_run_failed",detail:latestRun.error || "Latest AI execution failed.",recommended_action:"Inspect the failed run before retrying or changing the assigned model.",department });
+  }
+  const rank: Record<string,number> = { urgent:0, high:1, medium:2, low:3 };
+  alerts.sort((x,y)=>(rank[x.priority]??4)-(rank[y.priority]??4) || x.type.localeCompare(y.type));
+  const report = {
+    summary: alerts.length ? alerts.length + " risk signals detected across " + new Set(alerts.map(item=>item.task_id)).size + " tasks." : "No overdue, stale, reported-blocker, or latest-run failure signals were detected in the scanned open tasks.",
+    generated_mode:"deterministic_task_risk_scan",
+    generated_at:new Date().toISOString(),
+    coverage_note:"Rules-based scan of up to 200 open tasks, 500 task updates, and 200 AI runs. Stale means no recorded task/update/run activity for 72+ hours. A risk signal is advisory; this scan does not change task status, assign employees, or execute work.",
+    metrics:{open_tasks:open.length,scanned_tasks:tasks?.length??0,risk_signals:alerts.length,affected_tasks:new Set(alerts.map(item=>item.task_id)).size,overdue:alerts.filter(item=>item.type==="overdue").length,stale_72h:alerts.filter(item=>item.type==="stale_72h").length,reported_blockers:alerts.filter(item=>item.type==="reported_blocker").length,latest_ai_run_failures:alerts.filter(item=>item.type==="latest_ai_run_failed").length},
+    alerts,
+  };
+  const { data, error } = await supabase.from("reports").insert({organization_id:organizationId,title:"CEO Task Risk Scan · "+new Date().toLocaleString("en"),report_type:"operations",content:report,generated_by:user.id}).select("id").single();
+  if (error || !data) redirect("/?view=tasks&error="+encodeURIComponent("Could not save CEO risk scan."));
+  await log(supabase,organizationId,user.id,"ceo.task_risk_scan_completed","report",data.id);
+  revalidatePath("/");
+  redirect("/?view=tasks&message="+encodeURIComponent(alerts.length+" task risk signals detected. See the saved scan in Reports."));
+}
+
 export async function createTask(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const title = String(formData.get("title") ?? "").trim();
