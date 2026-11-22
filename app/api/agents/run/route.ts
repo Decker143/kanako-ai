@@ -61,6 +61,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The task could not be started. No AI work was run." }, { status: 409 });
   }
 
+  await supabase.from("task_updates").insert({
+    organization_id: membership.organization_id, task_id: task.id,
+    actor_user_id: user.id, actor_agent_id: agent.id,
+    event_type: "progress", progress_percent: 5,
+    message: agent.name + " started work on this task.",
+  });
+
   try {
     const [{ data: departments }, { data: knowledge }, { data: approvedMemories }, { data: learningHistory }, { data: previousRuns }] = await Promise.all([
       capabilities.includes("department_read")
@@ -133,6 +140,12 @@ export async function POST(request: Request) {
     }).eq("id", run.id).eq("organization_id", membership.organization_id);
     if (updateError) throw updateError;
 
+    await supabase.from("task_updates").insert({
+      organization_id: membership.organization_id, task_id: task.id,
+      actor_user_id: user.id, actor_agent_id: agent.id,
+      event_type: "progress", progress_percent: 90,
+      message: agent.name + " produced a deliverable. It is now awaiting owner/admin review.",
+    });
     const { error: reviewQueueError } = await supabase.from("tasks").update({ status: "in_review" })
       .eq("id", task.id).eq("organization_id", membership.organization_id);
     if (reviewQueueError) throw reviewQueueError;
@@ -152,6 +165,12 @@ export async function POST(request: Request) {
       status: task.status,
       assigned_agent_id: task.assigned_agent_id,
     }).eq("id", task.id).eq("organization_id", membership.organization_id);
+    await supabase.from("task_updates").insert({
+      organization_id: membership.organization_id, task_id: task.id,
+      actor_user_id: user.id, actor_agent_id: agent.id,
+      event_type: "note",
+      message: agent.name + " execution failed. The task was returned to its previous state; inspect the AI run record before retrying.",
+    });
     await supabase.from("agent_learning_events").insert({
       organization_id: membership.organization_id,
       agent_id: agent.id,
