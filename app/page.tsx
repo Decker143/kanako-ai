@@ -125,10 +125,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="stack" style={{marginTop:16}}>{(documents??[]).map(d=><details className="panel" key={d.id}><summary style={{cursor:"pointer",fontWeight:700}}>{d.title}<span className="muted" style={{fontSize:11,marginLeft:10}}>{d.source_type} · {dateLabel(d.created_at)}</span></summary><pre className="document-content">{d.content}</pre></details>)}</div>{!documents?.length&&<div className="empty">No knowledge documents added yet.</div>}
       </>}
       {view==="chat"&&<>
-        <div className="section-head"><h2>AI Office Chat</h2><span className="pill">AI runtime not activated</span></div>
+        <div className="section-head"><h2>AI Office Chat</h2><span className="pill">{aiExecutionEnabled?"AI runtime enabled":"AI runtime not activated"}</span></div>
         <div className="chat-layout"><div className="panel chat-list"><form action={createConversation}><input className="field" name="title" placeholder="Conversation title"/><button className="btn" style={{width:"100%",marginTop:8}}>New conversation</button></form><div className="nav-label">CONVERSATIONS</div>{(conversations??[]).map(c=><Link key={c.id} className={`conversation-link ${activeConversation?.id===c.id?"active":""}`} href={`/?view=chat&conversation=${c.id}`}>{c.title||"Untitled conversation"}</Link>)}</div>
           <div className="panel chat-main">{activeConversation?<><h3>{activeConversation.title||"Conversation"}</h3><ChatPanel conversationId={activeConversation.id} initialMessages={messages??[]}/></>:<div className="empty">Create a conversation to get started.</div>}</div></div>
-        <div className="notice" style={{marginTop:16}}>Messages are saved to your private organization workspace. AI-generated replies and tool execution are not enabled yet; we will activate them only after model access and usage costs are explicitly approved.</div>
+        <div className="notice" style={{marginTop:16}}>Messages are saved to your private organization workspace. {aiExecutionEnabled?"AI responses use the configured Vercel AI Gateway model.":"AI-generated replies and tool execution are disabled until model access and usage costs are explicitly approved."}</div>
       </>}
       {view==="reports"&&<>
         <div className="section-head"><h2>Reports library</h2><span className="pill">{reports?.length??0} reports</span></div>
@@ -139,7 +139,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="section-head"><h2>Workspace activity</h2><span className="pill">Latest {activity?.length??0}</span></div>
         <div className="panel table-wrap"><table className="table"><thead><tr><th>Action</th><th>Entity</th><th>Time</th></tr></thead><tbody>{(activity??[]).map(a=><tr key={a.id}><td>{a.action}</td><td>{a.entity_type??"—"}</td><td>{dateLabel(a.created_at)}</td></tr>)}</tbody></table>{!activity?.length&&<div className="empty">No activity recorded yet.</div>}</div>
       </>}
-      <div className="footer-status" id="system-status"><span>Workspace database: connected</span><span>Authentication: active</span><span>AI execution: gated</span></div>
+      <div className="footer-status" id="system-status"><span>Workspace database: connected</span><span>Authentication: active</span><span>AI execution: {aiExecutionEnabled?"enabled":"gated"}</span></div>
       <p className="muted" style={{fontSize:11,marginTop:18}}>KANAKO AI · Secure organization workspace · Build foundation</p>
     </main>
   </div>;
