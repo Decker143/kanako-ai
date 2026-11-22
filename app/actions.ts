@@ -72,7 +72,7 @@ export async function updateTaskStatus(formData: FormData) {
     }
     const { data: pendingRun } = await supabase.from("agent_runs").select("id,output")
       .eq("organization_id", organizationId).eq("task_id", id).eq("status", "succeeded")
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).maybeSingle();
     const review = pendingRun?.output && typeof pendingRun.output === "object" && !Array.isArray(pendingRun.output)
       ? (pendingRun.output as Record<string, unknown>).review as { decision?: string } | undefined
       : undefined;
