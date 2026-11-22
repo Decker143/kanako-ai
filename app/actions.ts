@@ -139,17 +139,10 @@ export async function approveTaskHandoff(formData: FormData) {
     .eq("task_id", taskId).eq("organization_id", organizationId).in("event_type", ["handoff_requested","handoff_approved"])
     .order("created_at",{ascending:false}).limit(1).maybeSingle();
   if (latest?.id !== request.id) redirect("/?view=tasks&error=" + encodeURIComponent("A newer handoff decision already exists."));
-  const { data: result, error: assignError } = await supabase.rpc("assign_task_to_agent", {
-    p_task_id: taskId, p_agent_id: request.target_agent_id, p_organization_id: organizationId,
-    p_rationale: "Owner-approved handoff: " + request.message.slice(0, 350),
+  const { data: result, error: assignError } = await supabase.rpc("approve_task_handoff", {
+    p_task_id: taskId, p_request_id: updateId, p_organization_id: organizationId,
   });
   if (assignError || !result) redirect("/?view=tasks&error=" + encodeURIComponent(assignError?.message ?? "Handoff assignment failed."));
-  const { error: eventError } = await supabase.from("task_updates").insert({
-    organization_id: organizationId, task_id: taskId, actor_user_id: user.id,
-    event_type: "handoff_approved", message: "Owner approved handoff. " + request.message.slice(0, 3800),
-    target_agent_id: request.target_agent_id,
-  });
-  if (eventError) redirect("/?view=tasks&error=" + encodeURIComponent("Employee reassigned, but the handoff history event could not be saved. Check the activity log."));
   await log(supabase, organizationId, user.id, "task.handoff_approved", "task", taskId);
   revalidatePath("/");
   redirect("/?view=tasks&message=" + encodeURIComponent("Handoff approved and employee reassigned."));
