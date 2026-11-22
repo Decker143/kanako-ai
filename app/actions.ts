@@ -104,6 +104,7 @@ export async function createAgent(formData: FormData) {
   const { data, error } = await supabase.from("ai_agents").insert({
     organization_id: organizationId, department_id: departmentId, name, job_title: jobTitle,
     description: description || null, instructions: instructions || null,
+    skills, max_concurrent_tasks: maxConcurrentTasks, availability_status: availabilityStatus,
     model_provider: modelName ? "vercel-ai-gateway" : null, model_name: modelName || null,
     status: "draft", created_by: user.id, capabilities: [], configuration: {},
   }).select("id").single();
