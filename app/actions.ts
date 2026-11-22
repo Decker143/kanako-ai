@@ -118,7 +118,17 @@ export async function createWorkflow(formData: FormData) {
   const trigger = String(formData.get("trigger") ?? "manual");
   const stepsText = String(formData.get("steps") ?? "").trim();
   if (!name) return;
-  const steps = stepsText.split("\n").map(s => s.trim()).filter(Boolean).map((label, index) => ({ id: crypto.randomUUID(), order: index + 1, type: "manual", label }));
+  const allowedTypes = new Set(["create_task", "request_approval", "search_knowledge", "log_activity"]);
+  const steps = stepsText.split("\n").map(s => s.trim()).filter(Boolean).map((line, index) => {
+    const [rawType, ...parts] = line.split("|").map(part => part.trim());
+    const type = allowedTypes.has(rawType) ? rawType : "manual";
+    const value = parts.join(" | ");
+    return {
+      id: crypto.randomUUID(), order: index + 1, type, label: value || line,
+      ...(type === "create_task" || type === "request_approval" ? { title: parts[0] || "", description: parts.slice(1).join(" | ") } : {}),
+      ...(type === "search_knowledge" ? { query: value } : {}),
+    };
+  });
   const { data, error } = await supabase.from("automation_workflows").insert({
     organization_id: organizationId, name, description: description || null,
     trigger_config: { type: trigger }, steps, status: "draft", created_by: user.id,
@@ -133,7 +143,21 @@ export async function updateWorkflowStatus(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const id = String(formData.get("workflow_id") ?? "");
   const status = String(formData.get("status") ?? "draft");
-  if (!id || !["draft", "paused"].includes(status)) return;
+  if (!id || !["draft", "paused", "active"].includes(status)) return;
+  if (status === "active") {
+    if (!["owner", "admin"].includes((await context()).role)) redirect("/?view=workflows&error=" + encodeURIComponent("Only workspace owners and admins can activate workflows."));
+    const { data: workflow } = await supabase.from("automation_workflows").select("trigger_config,steps").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    const trigger = workflow?.trigger_config as { type?: string } | null;
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps as {type?:string;title?:string;query?:string;label?:string}[] : [];
+    const allowed = new Set(["create_task", "request_approval", "search_knowledge", "log_activity"]);
+    const valid = trigger?.type === "manual" && steps.length > 0 && steps.length <= 20 && steps.every(step =>
+      !!step.type && allowed.has(step.type) &&
+      (step.type === "create_task" || step.type === "request_approval" ? !!step.title?.trim() :
+       step.type === "search_knowledge" ? !!(step.query || step.label)?.trim() : !!step.label?.trim())
+    );
+    if (!valid) redirect("/?view=workflows&error=" + encodeURIComponent("Only manual workflows with 1–20 valid internal-action steps can be activated."));
+  }
+  if (!["owner", "admin"].includes(role)) redirect("/?view=workflows&error=" + encodeURIComponent("Only workspace owners and admins can change workflow status."));
   const { error } = await supabase.from("automation_workflows").update({ status }).eq("id", id).eq("organization_id", organizationId);
   if (!error) await log(supabase, organizationId, user.id, "workflow.status_updated", "workflow", id);
   revalidatePath("/");
