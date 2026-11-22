@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 
 async function context() {
   const supabase = await createClient();
@@ -181,7 +182,7 @@ export async function reviewAgentRun(formData: FormData) {
   }
 
   const previousOutput = run.output && typeof run.output === "object" && !Array.isArray(run.output)
-    ? run.output as Record<string, unknown> : {};
+    ? run.output as { [key: string]: Json | undefined } : {};
   const reviewedAt = new Date().toISOString();
   const { error: runError } = await supabase.from("agent_runs").update({
     output: {
