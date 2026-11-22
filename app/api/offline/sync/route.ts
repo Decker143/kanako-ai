@@ -42,7 +42,6 @@ export async function POST(request: Request) {
         title,
         description: description || null,
         status: "queued",
-        priority: "normal",
         created_by: user.id,
         metadata: { offline_client_id: id, source: "kanako_offline_workspace" },
       });
