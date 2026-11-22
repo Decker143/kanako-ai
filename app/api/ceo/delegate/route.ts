@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       .order("created_at", { ascending: false }).limit(250),
   ]);
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const taskTerms = new Set(((task?.title ?? "") + " " + (task?.description ?? "")).toLowerCase().match(/[a-z0-9+#.-]{2,}/g) ?? []);
   const employees = (employeeRecords ?? []).map(employee => {
     const openTaskCount = (assignedTasks ?? []).filter(item => item.assigned_agent_id === employee.id).length;
     const outcomes = (recentRuns ?? []).filter(run => run.agent_id === employee.id && new Date(run.created_at).getTime() >= thirtyDaysAgo && ["succeeded", "failed"].includes(run.status));
@@ -48,6 +49,8 @@ export async function POST(request: Request) {
       recentRunCount: outcomes.length,
       recentSuccessRate: outcomes.length ? Math.round(successfulRuns / outcomes.length * 100) : null,
       remainingCapacity: Math.max(0, employee.max_concurrent_tasks - openTaskCount),
+      skillMatches: (employee.skills ?? []).filter(skill => [...taskTerms].some(term => term.includes(skill) || skill.includes(term))).length,
+      workloadUtilizationPercent: Math.round(openTaskCount / Math.max(1, employee.max_concurrent_tasks) * 100),
     };
   }).filter(employee =>
     typeof employee.model_name === "string" && employee.model_name.includes("/") &&
@@ -76,7 +79,7 @@ export async function POST(request: Request) {
         "Return exactly one JSON object and no markdown: {\"agentId\":\"eligible employee UUID\",\"rationale\":\"brief reason\"}.",
         "CEO operating instructions: " + (ceo?.instructions || "Coordinate departments, match work to qualified employees, and keep humans in control of consequential actions."),
         "Departments: " + JSON.stringify(departments ?? []),
-        "Eligible employees: " + JSON.stringify(employees.map(({id,name,job_title,description,department_id,instructions,skills,openTaskCount,max_concurrent_tasks,remainingCapacity,recentRunCount,recentSuccessRate}) => ({id,name,job_title,description,department_id,instructions,skills,openTaskCount,max_concurrent_tasks,remainingCapacity,recentRunCount,recentSuccessRate}))),
+        "Eligible employees: " + JSON.stringify(employees.map(({id,name,job_title,description,department_id,instructions,skills,openTaskCount,max_concurrent_tasks,remainingCapacity,recentRunCount,recentSuccessRate,skillMatches,workloadUtilizationPercent}) => ({id,name,job_title,description,department_id,instructions,skills,openTaskCount,max_concurrent_tasks,remainingCapacity,recentRunCount,recentSuccessRate,skillMatches,workloadUtilizationPercent}))),
       ].join("\n\n"),
       prompt: "Choose an employee for this task:\n" + JSON.stringify({
         id: task.id, title: task.title, description: task.description, priority: task.priority,
@@ -104,6 +107,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("KANAKO AI CEO delegation failed", error);
+    const message = error instanceof Error ? error.message : "";
+    if (/capacity|not eligible|Only queued|already assigned/i.test(message)) {
+      return NextResponse.json({ error: "The selected employee or task is no longer eligible. Refresh the workspace and try delegation again." }, { status: 409 });
+    }
+    if (/permission required|Authentication required/i.test(message)) {
+      return NextResponse.json({ error: "You no longer have permission to delegate work in this workspace." }, { status: 403 });
+    }
     return NextResponse.json({ error: "The AI CEO could not safely assign this task. No task execution was started." }, { status: 502 });
   }
 }
