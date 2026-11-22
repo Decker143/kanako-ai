@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signIn(formData: FormData) {
@@ -18,7 +19,14 @@ export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (password.length < 8) redirect("/?error=" + encodeURIComponent("Use at least 8 characters for your password."));
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const origin = requestHeaders.get("origin") ?? (host ? `${protocol}://${host}` : "http://localhost:3000");
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { emailRedirectTo: `${origin}/auth/callback` },
+  });
   if (error) redirect("/?error=" + encodeURIComponent(error.message));
   if (!data.session) redirect("/?message=" + encodeURIComponent("Check your email to confirm your account, then sign in."));
   redirect("/");
