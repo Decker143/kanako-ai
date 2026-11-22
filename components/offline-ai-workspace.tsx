@@ -12,6 +12,7 @@ type OfflineAgent = { id: string; name: string; job_title: string; instructions:
 type OfflineCloudTask = { id: string; title: string; description: string | null; status: string; priority: string; department_id: string | null; assigned_agent_id: string | null };
 type OfflineMemory = { agent_id: string; memory_type: string; title: string; content: string; confidence: number };
 type OfflineLearningEvent = { agent_id: string; event_type: string; feedback: string | null; lesson: string | null; created_at: string };
+type OfflinePreviousRun = { agent_id: string; input: unknown; output: unknown; created_at: string };
 type OfflineSnapshot = {
   id: string;
   organizationId: string;
@@ -21,6 +22,7 @@ type OfflineSnapshot = {
   departments: { id: string; name: string; description: string | null }[];
   memories: OfflineMemory[];
   learningEvents: OfflineLearningEvent[];
+  previousRuns: OfflinePreviousRun[];
 };
 type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string };
 type StoreName = "messages" | "tasks" | "snapshots" | "runs";
@@ -235,6 +237,12 @@ export function OfflineAIWorkspace() {
         "Department context: " + JSON.stringify(department ?? null),
         "Human-approved memories: " + JSON.stringify(memories.map(memory => ({ type: memory.memory_type, title: memory.title, content: memory.content }))),
         "Recent reviewer feedback and outcomes: " + JSON.stringify(learning.map(event => ({ outcome: event.event_type, feedback: event.feedback, lesson: event.lesson }))),
+        "Examples of this employee's previously approved work (reuse the method only when relevant; do not copy old customer facts): " + JSON.stringify((snapshot?.previousRuns ?? []).filter(run => run.agent_id === agent.id).slice(0, 3).map(run => {
+          const input = run.input && typeof run.input === "object" ? run.input as { task_title?: string } : {};
+          const output = run.output && typeof run.output === "object" ? run.output as { text?: string } : {};
+          return { previous_task: input.task_title, approved_example: typeof output.text === "string" ? output.text.slice(0, 900) : "" };
+        })),
+
         "Use the approved memories and feedback to improve your approach. Do not copy old facts blindly. State limitations, assumptions, deliverables, and next steps.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
