@@ -14,8 +14,9 @@ export async function POST(request: Request) {
   }
 
   const { data: membership } = await supabase.from("organization_members")
-    .select("organization_id").eq("user_id", user.id).limit(1).maybeSingle();
+    .select("organization_id,role").eq("user_id", user.id).limit(1).maybeSingle();
   if (!membership) return NextResponse.json({ error: "No organization workspace was found." }, { status: 403 });
+  if (!["owner", "admin"].includes(membership.role)) return NextResponse.json({ error: "Only workspace owners and admins can execute AI employee tasks." }, { status: 403 });
 
   const body = await request.json().catch(() => null) as { agentId?: string; taskId?: string } | null;
   if (!body?.agentId || !body?.taskId) return NextResponse.json({ error: "Select an AI employee and a task." }, { status: 400 });
