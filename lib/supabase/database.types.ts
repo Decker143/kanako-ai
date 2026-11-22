@@ -892,6 +892,10 @@ export type Database = {
     }
     Functions: {
       create_organization: { Args: { org_name: string }; Returns: string }
+      assign_task_to_agent: {
+        Args: { p_task_id: string; p_agent_id: string; p_organization_id: string; p_rationale?: string | null }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
