@@ -770,7 +770,8 @@ export type Database = {
           task_id: string
         }
         Insert: {
-          actor_user_id: string
+          actor_agent_id?: string | null
+          actor_user_id?: string | null
           created_at?: string
           event_type: string
           id?: string
@@ -781,7 +782,8 @@ export type Database = {
           task_id: string
         }
         Update: {
-          actor_user_id?: string
+          actor_agent_id?: string | null
+          actor_user_id?: string | null
           created_at?: string
           event_type?: string
           id?: string
