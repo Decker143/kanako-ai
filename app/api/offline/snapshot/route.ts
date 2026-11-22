@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const [{ data: agentRows }, { data: tasks }, { data: departments }] = await Promise.all([
     supabase.from("ai_agents").select("id,name,job_title,instructions,department_id,capabilities")
       .eq("organization_id", organizationId).eq("status", "active"),
-    supabase.from("tasks").select("id,title,description,status,priority,department_id")
+    supabase.from("tasks").select("id,title,description,status,priority,department_id,assigned_agent_id")
       .eq("organization_id", organizationId).in("status", ["queued", "blocked"])
       .order("created_at", { ascending: false }).limit(100),
     supabase.from("departments").select("id,name,description").eq("organization_id", organizationId),
