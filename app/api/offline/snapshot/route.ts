@@ -27,11 +27,18 @@ export async function GET(request: Request) {
     Array.isArray(agent.capabilities) && agent.capabilities.includes("task_execution")
   );
   const agentIds = agents.map(agent => agent.id);
-  const { data: memories } = agentIds.length
-    ? await supabase.from("agent_memories").select("agent_id,memory_type,title,content,confidence")
-      .eq("organization_id", organizationId).in("agent_id", agentIds).eq("status", "approved")
-      .order("updated_at", { ascending: false }).limit(200)
-    : { data: [] as {agent_id:string;memory_type:string;title:string;content:string;confidence:number}[] };
+  const [{ data: memories }, { data: learningEvents }] = await Promise.all([
+    agentIds.length
+      ? supabase.from("agent_memories").select("agent_id,memory_type,title,content,confidence")
+        .eq("organization_id", organizationId).in("agent_id", agentIds).eq("status", "approved")
+        .order("updated_at", { ascending: false }).limit(200)
+      : Promise.resolve({ data: [] as {agent_id:string;memory_type:string;title:string;content:string;confidence:number}[] }),
+    agentIds.length
+      ? supabase.from("agent_learning_events").select("agent_id,event_type,feedback,lesson,created_at")
+        .eq("organization_id", organizationId).in("agent_id", agentIds)
+        .order("created_at", { ascending: false }).limit(100)
+      : Promise.resolve({ data: [] as {agent_id:string;event_type:string;feedback:string|null;lesson:string|null;created_at:string}[] }),
+  ]);
 
   return NextResponse.json({
     organizationId,
@@ -40,5 +47,6 @@ export async function GET(request: Request) {
     tasks: tasks ?? [],
     departments: departments ?? [],
     memories: memories ?? [],
+    learningEvents: learningEvents ?? [],
   });
 }
