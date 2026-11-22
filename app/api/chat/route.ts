@@ -11,8 +11,11 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
 
   const { data: membership } = await supabase.from("organization_members")
-    .select("organization_id").eq("user_id", user.id).limit(1).maybeSingle();
+    .select("organization_id,role").eq("user_id", user.id).limit(1).maybeSingle();
   if (!membership) return NextResponse.json({ error: "No organization workspace was found." }, { status: 403 });
+  if (process.env.KANAKO_AI_EXECUTION_ENABLED === "true" && !["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Only workspace owners and admins can use billable AI execution." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => null) as { conversationId?: string; content?: string } | null;
   const conversationId = body?.conversationId;
