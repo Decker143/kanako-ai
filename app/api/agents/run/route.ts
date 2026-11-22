@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (!body?.agentId || !body?.taskId) return NextResponse.json({ error: "Select an AI employee and a task." }, { status: 400 });
 
   const [{ data: agent }, { data: task }] = await Promise.all([
-    supabase.from("ai_agents").select("id,name,job_title,instructions,model_name,status,department_id")
+    supabase.from("ai_agents").select("id,name,job_title,instructions,model_name,status,department_id,capabilities")
       .eq("id", body.agentId).eq("organization_id", membership.organization_id).maybeSingle(),
     supabase.from("tasks").select("id,title,description,status,priority,department_id,assigned_agent_id")
       .eq("id", body.taskId).eq("organization_id", membership.organization_id).maybeSingle(),
@@ -30,6 +30,10 @@ export async function POST(request: Request) {
   if (!agent) return NextResponse.json({ error: "AI employee not found." }, { status: 404 });
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   if (agent.status !== "active") return NextResponse.json({ error: "Only activated AI employees can run tasks." }, { status: 409 });
+  const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
+  if (!capabilities.includes("task_execution")) {
+    return NextResponse.json({ error: "This AI employee does not have the Task execution permission." }, { status: 403 });
+  }
   if (!agent.model_name || !agent.model_name.includes("/")) return NextResponse.json({ error: "Configure a valid AI Gateway model ID first." }, { status: 409 });
   if (["completed", "cancelled"].includes(task.status)) return NextResponse.json({ error: "This task is already closed." }, { status: 409 });
 
@@ -58,8 +62,12 @@ export async function POST(request: Request) {
 
   try {
     const [{ data: departments }, { data: knowledge }] = await Promise.all([
-      supabase.from("departments").select("name,description").eq("organization_id", membership.organization_id),
-      supabase.from("knowledge_documents").select("title,content").eq("organization_id", membership.organization_id).limit(8),
+      capabilities.includes("department_read")
+        ? supabase.from("departments").select("name,description").eq("organization_id", membership.organization_id)
+        : Promise.resolve({ data: [] }),
+      capabilities.includes("knowledge_read")
+        ? supabase.from("knowledge_documents").select("title,content").eq("organization_id", membership.organization_id).limit(8)
+        : Promise.resolve({ data: [] }),
     ]);
     const result = await generateText({
       model: agent.model_name,
