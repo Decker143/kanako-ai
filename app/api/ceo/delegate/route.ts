@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       .eq("job_title", "AI Chief Executive Officer").limit(1).maybeSingle(),
   ]);
   const employees = (employeeRecords ?? []).filter(employee =>
+    typeof employee.model_name === "string" && employee.model_name.includes("/") &&
     Array.isArray(employee.capabilities) && employee.capabilities.includes("task_execution")
   );
 
