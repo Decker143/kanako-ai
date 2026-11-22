@@ -184,14 +184,15 @@ export async function reviewAgentRun(formData: FormData) {
   const previousOutput = run.output && typeof run.output === "object" && !Array.isArray(run.output)
     ? run.output as { [key: string]: Json | undefined } : {};
   const reviewedAt = new Date().toISOString();
-  const { error: runError } = await supabase.from("agent_runs").update({
+  const { data: updatedRun, error: runError } = await supabase.from("agent_runs").update({
     output: {
       ...previousOutput,
       review: { decision, note: note || null, reviewed_at: reviewedAt, reviewed_by: user.id },
     },
-  }).eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded");
+  }).eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded")
+    .select("id").maybeSingle();
 
-  if (runError) {
+  if (runError || !updatedRun) {
     await supabase.from("tasks").update({ status: "in_review", completed_at: null })
       .eq("id", task.id).eq("organization_id", organizationId).eq("status", nextTaskStatus);
     redirect("/?view=agents&error=" + encodeURIComponent("Could not save the review record. The task was returned to review."));
