@@ -134,6 +134,64 @@ export async function updateAgentStatus(formData: FormData) {
   revalidatePath("/");
 }
 
+export async function reviewAgentRun(formData: FormData) {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Only workspace owners and admins can review AI employee work."));
+  }
+
+  const runId = String(formData.get("run_id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("review_note") ?? "").trim().slice(0, 1000);
+  if (!runId || !["approved", "changes_requested"].includes(decision)) return;
+
+  const { data: run } = await supabase.from("agent_runs")
+    .select("id,task_id,status,output,agent_id")
+    .eq("id", runId).eq("organization_id", organizationId).maybeSingle();
+  if (!run || run.status !== "succeeded" || !run.task_id) {
+    redirect("/?view=agents&error=" + encodeURIComponent("This AI run is not available for review."));
+  }
+
+  const { data: task } = await supabase.from("tasks")
+    .select("id,status").eq("id", run.task_id)
+    .eq("organization_id", organizationId).maybeSingle();
+  if (!task || task.status !== "in_review") {
+    redirect("/?view=agents&error=" + encodeURIComponent("The task is no longer waiting for review."));
+  }
+
+  const nextTaskStatus = decision === "approved" ? "completed" : "queued";
+  const { data: updatedTask, error: taskError } = await supabase.from("tasks").update({
+    status: nextTaskStatus,
+    completed_at: decision === "approved" ? new Date().toISOString() : null,
+  }).eq("id", task.id).eq("organization_id", organizationId).eq("status", "in_review")
+    .select("id").maybeSingle();
+  if (taskError || !updatedTask) {
+    redirect("/?view=agents&error=" + encodeURIComponent("The task changed before the review could be saved. Refresh and try again."));
+  }
+
+  const previousOutput = run.output && typeof run.output === "object" && !Array.isArray(run.output)
+    ? run.output as Record<string, unknown> : {};
+  const reviewedAt = new Date().toISOString();
+  const { error: runError } = await supabase.from("agent_runs").update({
+    output: {
+      ...previousOutput,
+      review: { decision, note: note || null, reviewed_at: reviewedAt, reviewed_by: user.id },
+    },
+  }).eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded");
+
+  if (runError) {
+    await supabase.from("tasks").update({ status: "in_review", completed_at: null })
+      .eq("id", task.id).eq("organization_id", organizationId).eq("status", nextTaskStatus);
+    redirect("/?view=agents&error=" + encodeURIComponent("Could not save the review record. The task was returned to review."));
+  }
+
+  await log(supabase, organizationId, user.id,
+    decision === "approved" ? "ai_agent.work_approved" : "ai_agent.revision_requested",
+    "agent_run", run.id);
+  revalidatePath("/");
+  redirect("/?view=agents");
+}
+
 export async function createWorkflow(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const name = String(formData.get("name") ?? "").trim();
