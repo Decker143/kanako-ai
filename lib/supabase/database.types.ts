@@ -278,6 +278,7 @@ export type Database = {
       }
       ai_agents: {
         Row: {
+          availability_status: string
           capabilities: Json
           configuration: Json
           created_at: string
@@ -287,17 +288,17 @@ export type Database = {
           id: string
           instructions: string | null
           job_title: string
+          max_concurrent_tasks: number
           model_name: string | null
           model_provider: string | null
           name: string
           organization_id: string
-          status: string
           skills: string[]
-          max_concurrent_tasks: number
-          availability_status: string
+          status: string
           updated_at: string
         }
         Insert: {
+          availability_status?: string
           capabilities?: Json
           configuration?: Json
           created_at?: string
@@ -307,17 +308,17 @@ export type Database = {
           id?: string
           instructions?: string | null
           job_title: string
+          max_concurrent_tasks?: number
           model_name?: string | null
           model_provider?: string | null
           name: string
           organization_id: string
-          status?: string
           skills?: string[]
-          max_concurrent_tasks?: number
-          availability_status?: string
+          status?: string
           updated_at?: string
         }
         Update: {
+          availability_status?: string
           capabilities?: Json
           configuration?: Json
           created_at?: string
@@ -327,14 +328,13 @@ export type Database = {
           id?: string
           instructions?: string | null
           job_title?: string
+          max_concurrent_tasks?: number
           model_name?: string | null
           model_provider?: string | null
           name?: string
           organization_id?: string
-          status?: string
           skills?: string[]
-          max_concurrent_tasks?: number
-          availability_status?: string
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -949,15 +949,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_organization: { Args: { org_name: string }; Returns: string }
-      assign_task_to_agent: {
-        Args: { p_task_id: string; p_agent_id: string; p_organization_id: string; p_rationale?: string | null }
-        Returns: Json
-      }
       approve_task_handoff: {
-        Args: { p_task_id: string; p_request_id: string; p_organization_id: string }
+        Args: {
+          p_organization_id: string
+          p_request_id: string
+          p_task_id: string
+        }
         Returns: Json
       }
+      assign_task_to_agent: {
+        Args: {
+          p_agent_id: string
+          p_organization_id: string
+          p_rationale?: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      create_organization: { Args: { org_name: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
