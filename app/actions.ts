@@ -96,6 +96,9 @@ export async function createTaskUpdate(formData: FormData) {
   const { data: task } = await supabase.from("tasks").select("id,status,assigned_agent_id")
     .eq("id", taskId).eq("organization_id", organizationId).maybeSingle();
   if (!task) redirect("/?view=tasks&error=" + encodeURIComponent("Task not found in this workspace."));
+  if (["completed","cancelled"].includes(task.status) && eventType !== "note") {
+    redirect("/?view=tasks&error=" + encodeURIComponent("Closed tasks only accept notes; reopen the task before adding progress, blockers, or handoffs."));
+  }
   let progressPercent: number | null = null;
   if (eventType === "progress") {
     progressPercent = Number.parseInt(progressRaw, 10);
