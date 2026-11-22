@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
   const [{ data: agentRows }, { data: tasks }, { data: departments }] = await Promise.all([
     supabase.from("ai_agents").select("id,name,job_title,instructions,department_id,capabilities")
-      .eq("organization_id", organizationId).eq("status", "active"),
+      .eq("organization_id", organizationId).in("status", ["active", "draft"]),
     supabase.from("tasks").select("id,title,description,status,priority,department_id,assigned_agent_id")
       .eq("organization_id", organizationId).in("status", ["queued", "blocked"])
       .order("created_at", { ascending: false }).limit(100),
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   ]);
 
   const agents = (agentRows ?? []).filter(agent =>
-    Array.isArray(agent.capabilities) && agent.capabilities.includes("task_execution")
+    Array.isArray(agent.capabilities) && agent.capabilities.includes("task_execution") && agent.capabilities.includes("local_execution")
   );
   const agentIds = agents.map(agent => agent.id);
   const [{ data: memories }, { data: learningEvents }] = await Promise.all([
