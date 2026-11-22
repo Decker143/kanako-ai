@@ -140,12 +140,12 @@ export async function createWorkflow(formData: FormData) {
 }
 
 export async function updateWorkflowStatus(formData: FormData) {
-  const { supabase, user, organizationId } = await context();
+  const { supabase, user, organizationId, role } = await context();
   const id = String(formData.get("workflow_id") ?? "");
   const status = String(formData.get("status") ?? "draft");
   if (!id || !["draft", "paused", "active"].includes(status)) return;
   if (status === "active") {
-    if (!["owner", "admin"].includes((await context()).role)) redirect("/?view=workflows&error=" + encodeURIComponent("Only workspace owners and admins can activate workflows."));
+    if (!["owner", "admin"].includes(role)) redirect("/?view=workflows&error=" + encodeURIComponent("Only workspace owners and admins can activate workflows."));
     const { data: workflow } = await supabase.from("automation_workflows").select("trigger_config,steps").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     const trigger = workflow?.trigger_config as { type?: string } | null;
     const steps = Array.isArray(workflow?.steps) ? workflow.steps as {type?:string;title?:string;query?:string;label?:string}[] : [];
