@@ -11,7 +11,7 @@ KANAKO AI is a secure, organization-based virtual office platform built with Nex
 ## Implemented foundation
 
 - Email/password sign-up, sign-in, sign-out, and email verification callback.
-- Organization onboarding with eight default departments.
+- Organization onboarding with nine default departments, including CEO Office and Kanako assigned as AI CEO.
 - Organization-scoped dashboard, departments, task queue, and task assignment.
 - AI employee profile management with draft/paused/active lifecycle.
 - Guarded AI employee task execution with persistent agent run records.
@@ -94,3 +94,8 @@ Offline task drafts, local chat history, employee snapshots, and local AI run ou
 AI employees can use the `internet_research` capability only when `KANAKO_WEB_RESEARCH_ENABLED=true` and `BRAVE_SEARCH_API_KEY` are configured on the server. The adapter uses Brave's LLM Context endpoint, returns source URLs and excerpts to the model, and limits each run to a small number of tool steps. Search results are treated as untrusted reference content.
 
 No Brave key or plan has been configured. Brave Search requires an activated plan and prepaid credits; the provider currently advertises $5 per 1,000 requests and $5 monthly credits. Do not enable or purchase it without explicit approval. A model configured for the agent must support tool calling for this feature to work.
+
+
+## Product roadmap and architecture
+
+The complete product vision, implementation status, delivery phases, and release gates are maintained in [docs/KANAKO_MASTER_ROADMAP.md](docs/KANAKO_MASTER_ROADMAP.md). The system boundaries, permissions, online/offline model, learning safety, and approval architecture are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
