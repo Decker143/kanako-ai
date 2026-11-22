@@ -16,7 +16,8 @@ KANAKO AI is a secure, organization-based virtual office platform built with Nex
 - AI employee profile management with draft/paused/active lifecycle.
 - Guarded AI employee task execution with persistent agent run records.
 - Human approval requests and owner/admin decisions.
-- Workflow draft builder and step definitions.
+- Manual workflow executor with durable run history, single-running-run protection, and four internal-only actions: create task, request approval, search knowledge, and log activity.
+- AI CEO task delegation endpoint that selects only an eligible active AI employee and assigns the task without starting execution.
 - Organization knowledge documents stored in Postgres.
 - Persistent conversations and AI chat endpoint.
 - Reports library and activity log.
@@ -29,7 +30,7 @@ AI model execution is intentionally **disabled by default** using `KANAKO_AI_EXE
 
 When approved, configure a valid Vercel AI Gateway model ID (provider/model format) and use Vercel AI Gateway OIDC on Vercel deployments or an AI Gateway API key for local development. Only workspace owners and admins can use billable AI execution. Never expose provider credentials in browser code.
 
-AI employees must have a model configured and be explicitly activated before they can run assigned tasks. Workflow automation remains draft-only until the durable workflow executor and integration permissions are implemented.
+AI employees must have a model configured and be explicitly activated before they can run assigned tasks. Workflow execution is limited to explicitly activated manual workflows and internal database actions. Scheduled/event triggers, external integrations, and autonomous tool access are not enabled. AI CEO delegation is also gated by `KANAKO_AI_EXECUTION_ENABLED` and does not execute the delegated task.
 
 ## Environment
 
