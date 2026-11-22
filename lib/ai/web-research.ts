@@ -20,8 +20,8 @@ export function createWebResearchTool() {
       if (!isWebResearchEnabled() || !apiKey) throw new Error("Internet research is not enabled for this workspace.");
       const url = new URL("https://api.search.brave.com/res/v1/llm/context");
       const safeQuery = query.slice(0, 600)
-        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, "[redacted email]")
-        .replace(/\\+?\\d[\\d\\s().-]{7,}\\d/g, "[redacted phone]")
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted email]")
+        .replace(/\+?\d[\d\s().-]{7,}\d/g, "[redacted phone]")
         .replace(/(?:sk|pk|api|token)[-_][A-Za-z0-9_-]{12,}/gi, "[redacted credential]");
       url.searchParams.set("q", safeQuery);
       url.searchParams.set("country", "PH");
