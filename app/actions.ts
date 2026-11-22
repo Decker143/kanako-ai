@@ -34,10 +34,13 @@ export async function createTask(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const priority = String(formData.get("priority") ?? "medium");
+  const departmentId = String(formData.get("department_id") ?? "") || null;
+  const assignedAgentId = String(formData.get("assigned_agent_id") ?? "") || null;
   if (!title) return;
   const { data, error } = await supabase.from("tasks").insert({
     organization_id: organizationId, title, description: description || null,
     priority: ["low", "medium", "high", "urgent"].includes(priority) ? priority : "medium",
+    department_id: departmentId, assigned_agent_id: assignedAgentId,
     created_by: user.id,
   }).select("id").single();
   if (error) redirect("/?view=tasks&error=" + encodeURIComponent(error.message));
@@ -66,10 +69,13 @@ export async function createAgent(formData: FormData) {
   const departmentId = String(formData.get("department_id") ?? "") || null;
   const description = String(formData.get("description") ?? "").trim();
   const instructions = String(formData.get("instructions") ?? "").trim();
+  const modelName = String(formData.get("model_name") ?? "").trim();
   if (!name || !jobTitle) return;
+  if (modelName && (!modelName.includes("/") || modelName.length > 120)) redirect("/?view=agents&error=" + encodeURIComponent("Use a valid AI Gateway model ID in provider/model format."));
   const { data, error } = await supabase.from("ai_agents").insert({
     organization_id: organizationId, department_id: departmentId, name, job_title: jobTitle,
     description: description || null, instructions: instructions || null,
+    model_provider: modelName ? "vercel-ai-gateway" : null, model_name: modelName || null,
     status: "draft", created_by: user.id, capabilities: [], configuration: {},
   }).select("id").single();
   if (error) redirect("/?view=agents&error=" + encodeURIComponent(error.message));
@@ -82,7 +88,12 @@ export async function updateAgentStatus(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const id = String(formData.get("agent_id") ?? "");
   const status = String(formData.get("status") ?? "draft");
-  if (!id || !["draft", "paused"].includes(status)) return;
+  if (!id || !["draft", "paused", "active"].includes(status)) return;
+  if (status === "active") {
+    if (process.env.KANAKO_AI_EXECUTION_ENABLED !== "true") redirect("/?view=agents&error=" + encodeURIComponent("AI execution is locked until model usage is approved."));
+    const { data: agent } = await supabase.from("ai_agents").select("model_name").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    if (!agent?.model_name) redirect("/?view=agents&error=" + encodeURIComponent("Add an AI Gateway model ID before activating this employee."));
+  }
   const { error } = await supabase.from("ai_agents").update({ status }).eq("id", id).eq("organization_id", organizationId);
   if (!error) await log(supabase, organizationId, user.id, "agent.status_updated", "ai_agent", id);
   revalidatePath("/");
