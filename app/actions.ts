@@ -491,6 +491,74 @@ export async function generateExecutiveReport() {
   redirect("/?view=reports&message=" + encodeURIComponent("Executive operations brief generated."));
 }
 
+
+export async function createProjectPlan(formData: FormData) {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) redirect("/?view=reports&error=" + encodeURIComponent("Only workspace owners and admins can propose project plans."));
+  const title = String(formData.get("title") ?? "").trim().slice(0, 180);
+  const objective = String(formData.get("objective") ?? "").trim().slice(0, 4000);
+  const rawTasks = String(formData.get("tasks") ?? "").trim();
+  const priorityDefault = String(formData.get("priority") ?? "medium");
+  if (!title || !objective || !rawTasks) redirect("/?view=reports&error=" + encodeURIComponent("Add a project title, objective, and at least one task."));
+  const tasks = rawTasks.split("\n").map(line => line.trim()).filter(Boolean).slice(0, 40).map((line, index) => {
+    const [taskTitle, departmentName = "", priority = priorityDefault, description = ""] = line.split("|").map(value => value.trim());
+    return { order: index + 1, title: taskTitle.slice(0, 180), department_name: departmentName.slice(0, 100), priority: ["low","medium","high","urgent"].includes(priority.toLowerCase()) ? priority.toLowerCase() : priorityDefault, description: description.slice(0, 2000) };
+  }).filter(task => task.title.length > 0);
+  if (!tasks.length) redirect("/?view=reports&error=" + encodeURIComponent("The task list is empty."));
+  const { data, error } = await supabase.from("reports").insert({
+    organization_id: organizationId,
+    title: "Project Plan · " + title,
+    report_type: "project_plan",
+    content: { summary: objective, plan_status: "pending_approval", generated_mode: "owner_authored_structured_plan", generated_at: new Date().toISOString(), tasks },
+    generated_by: user.id,
+  }).select("id").single();
+  if (error || !data) redirect("/?view=reports&error=" + encodeURIComponent("Could not save the project plan proposal."));
+  await log(supabase, organizationId, user.id, "ceo.project_plan_proposed", "report", data.id);
+  revalidatePath("/");
+  redirect("/?view=reports&message=" + encodeURIComponent("Project plan saved for owner review."));
+}
+
+export async function approveProjectPlan(formData: FormData) {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) redirect("/?view=reports&error=" + encodeURIComponent("Only workspace owners and admins can approve project plans."));
+  const planId = String(formData.get("plan_id") ?? "");
+  if (!planId) return;
+  const { data: plan } = await supabase.from("reports").select("id,title,content")
+    .eq("id", planId).eq("organization_id", organizationId).eq("report_type", "project_plan").maybeSingle();
+  if (!plan) redirect("/?view=reports&error=" + encodeURIComponent("Project plan not found."));
+  const content = plan.content as { summary?: string; plan_status?: string; tasks?: Array<{title:string;department_name?:string;priority?:string;description?:string;order?:number}>; created_task_ids?:string[] };
+  if (content.plan_status !== "pending_approval" || !Array.isArray(content.tasks) || !content.tasks.length) {
+    redirect("/?view=reports&error=" + encodeURIComponent("This plan is no longer awaiting approval or has no tasks."));
+  }
+  const { data: claimed, error: claimError } = await supabase.from("reports").update({
+    content: { ...content, plan_status: "processing", approved_at: new Date().toISOString(), approved_by: user.id },
+  }).eq("id", plan.id).eq("organization_id", organizationId).eq("content->>plan_status", "pending_approval").select("id").maybeSingle();
+  if (claimError || !claimed) redirect("/?view=reports&error=" + encodeURIComponent("This plan was already handled. Refresh the page."));
+  const { data: departments } = await supabase.from("departments").select("id,name").eq("organization_id", organizationId);
+  const departmentMap = new Map((departments ?? []).map(item => [item.name.toLowerCase(), item.id]));
+  const rows = content.tasks.map(item => ({
+    organization_id: organizationId,
+    title: item.title,
+    description: item.description || null,
+    priority: ["low","medium","high","urgent"].includes(item.priority ?? "") ? item.priority : "medium",
+    department_id: item.department_name ? departmentMap.get(item.department_name.toLowerCase()) ?? null : null,
+    status: "queued",
+    created_by: user.id,
+    metadata: { project_plan_id: plan.id, project_plan_title: plan.title, plan_order: item.order ?? null },
+  }));
+  const { data: created, error } = await supabase.from("tasks").insert(rows).select("id");
+  if (error || !created || created.length !== rows.length) {
+    await supabase.from("reports").update({ content: { ...content, plan_status: "failed", error: error?.message ?? "Task creation was incomplete." } }).eq("id", plan.id).eq("organization_id", organizationId);
+    redirect("/?view=reports&error=" + encodeURIComponent("Plan approval started but task creation failed. The plan is marked for inspection; do not retry until checked."));
+  }
+  await supabase.from("reports").update({
+    content: { ...content, plan_status: "approved", approved_at: new Date().toISOString(), approved_by: user.id, created_task_ids: created.map(item => item.id) },
+  }).eq("id", plan.id).eq("organization_id", organizationId);
+  await log(supabase, organizationId, user.id, "ceo.project_plan_approved_and_tasks_created", "report", plan.id);
+  revalidatePath("/");
+  redirect("/?view=tasks&message=" + encodeURIComponent(created.length + " project tasks created. Assignments remain pending."));
+}
+
 export async function createReport(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const title = String(formData.get("title") ?? "").trim();
