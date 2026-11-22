@@ -95,12 +95,10 @@ export function OfflineAIWorkspace() {
       setModelMessage("WebGPU is not available in this browser. Use a current Chrome or Edge browser with compatible graphics hardware.");
       return;
     }
-    if (!navigator.onLine) {
-      setModelMessage("Connect to the internet once to download the local model. It can then run offline.");
-      return;
-    }
     setLoadingModel(true);
-    setModelMessage("Preparing local model. The first download is large and may take several minutes.");
+    setModelMessage(navigator.onLine
+      ? "Loading the local model. If this is the first use, model files will download and may take several minutes."
+      : "Trying to load the model already cached on this device. If it has never been downloaded here, connect once first.");
     try {
       const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
       const engine = await CreateMLCEngine(MODEL_ID, {
@@ -202,7 +200,7 @@ export function OfflineAIWorkspace() {
     <div className="panel">
       <div className="row-between"><div><div className="eyebrow">DEVICE-LOCAL AI</div><h2 style={{margin:"8px 0"}}>Offline intelligence</h2></div><span className="pill">{online ? "Online" : "Offline"}</span></div>
       <p className="muted" style={{fontSize:13}}>A small language model runs directly in your browser. Download it once while connected; after its files are cached, local chat can run without sending prompts to a cloud AI provider.</p>
-      <div className="row-between" style={{gap:12,flexWrap:"wrap"}}><div><strong style={{fontSize:13}}>Llama 3.2 1B · 4-bit</strong><div className="muted" style={{fontSize:11}}>Estimated graphics memory requirement: about 0.9 GB</div></div><button className="btn" onClick={prepareModel} disabled={loadingModel || modelReady || !online}>{loadingModel ? "Preparing…" : modelReady ? "Local model ready" : "Download / load local model"}</button></div>
+      <div className="row-between" style={{gap:12,flexWrap:"wrap"}}><div><strong style={{fontSize:13}}>Llama 3.2 1B · 4-bit</strong><div className="muted" style={{fontSize:11}}>Estimated graphics memory requirement: about 0.9 GB</div></div><button className="btn" onClick={prepareModel} disabled={loadingModel || modelReady}>{loadingModel ? "Preparing…" : modelReady ? "Local model ready" : "Download / load local model"}</button></div>
       {(loadingModel || modelProgress>0)&&<div style={{height:7,background:"#202a39",borderRadius:8,marginTop:14,overflow:"hidden"}}><div style={{height:"100%",width:modelProgress+"%",background:"#8b7cff",transition:"width .2s"}}/></div>}
       <p className="muted" style={{fontSize:11,marginBottom:0}}>{modelMessage}</p>
     </div>
