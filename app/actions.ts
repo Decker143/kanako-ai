@@ -212,9 +212,78 @@ export async function reviewAgentRun(formData: FormData) {
     redirect("/?view=agents&error=" + encodeURIComponent("The task changed before the review could be applied. The review record was rolled back."));
   }
 
+  const { error: learningEventError } = await supabase.from("agent_learning_events").insert({
+    organization_id: organizationId,
+    agent_id: run.agent_id,
+    task_id: task.id,
+    agent_run_id: run.id,
+    event_type: decision === "approved" ? "task_approved" : "revision_requested",
+    feedback: note || null,
+    lesson: decision === "approved"
+      ? "A human reviewer accepted this task output. Reuse its approach only when the new task is materially similar."
+      : note,
+    created_by: user.id,
+    metadata: { decision, task_title: "reviewed task" },
+  });
+  if (learningEventError) {
+    redirect("/?view=agents&error=" + encodeURIComponent("The task review was saved, but the learning event could not be recorded. Please retry or inspect the activity log."));
+  }
+
+  if (decision === "changes_requested" && note) {
+    const { error: memoryError } = await supabase.from("agent_memories").insert({
+      organization_id: organizationId,
+      agent_id: run.agent_id,
+      memory_type: "correction",
+      title: ("Correction: " + note).slice(0, 180),
+      content: note,
+      status: "pending",
+      source_run_id: run.id,
+      confidence: 0.8,
+      created_by: user.id,
+    });
+    if (memoryError) {
+      redirect("/?view=agents&error=" + encodeURIComponent("Revision was requested and recorded, but the reusable correction could not be queued for approval."));
+    }
+  }
+
   await log(supabase, organizationId, user.id,
     decision === "approved" ? "ai_agent.work_approved" : "ai_agent.revision_requested",
     "agent_run", run.id);
+  revalidatePath("/");
+  redirect("/?view=agents");
+}
+
+export async function reviewAgentMemory(formData: FormData) {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Only workspace owners and admins can review AI memories."));
+  }
+
+  const memoryId = String(formData.get("memory_id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  if (!memoryId || !["approved", "rejected"].includes(decision)) return;
+
+  const { data: memory } = await supabase.from("agent_memories").select("id,title,status,agent_id")
+    .eq("id", memoryId).eq("organization_id", organizationId).eq("status", "pending").maybeSingle();
+  if (!memory) {
+    redirect("/?view=agents&error=" + encodeURIComponent("This learning candidate is no longer pending."));
+  }
+
+  const reviewedAt = new Date().toISOString();
+  const { data: updated, error } = await supabase.from("agent_memories").update({
+    status: decision,
+    reviewed_by: user.id,
+    reviewed_at: reviewedAt,
+    updated_at: reviewedAt,
+  }).eq("id", memory.id).eq("organization_id", organizationId).eq("status", "pending")
+    .select("id").maybeSingle();
+  if (error || !updated) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Could not save the memory review. Refresh and try again."));
+  }
+
+  await log(supabase, organizationId, user.id,
+    decision === "approved" ? "ai_agent.memory_approved" : "ai_agent.memory_rejected",
+    "agent_memory", memory.id);
   revalidatePath("/");
   redirect("/?view=agents");
 }
