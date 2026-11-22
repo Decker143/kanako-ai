@@ -125,7 +125,6 @@ export function OfflineAIWorkspace() {
       }
     };
     update();
-    try { setOrganizationId(localStorage.getItem("kanako-ai-active-org") ?? ""); } catch { setOrganizationId(""); }
     window.addEventListener("online", update);
     window.addEventListener("offline", update);
 
@@ -136,6 +135,7 @@ export function OfflineAIWorkspace() {
       readRecords<LocalRun>("runs"),
     ]).then(([savedMessages, savedTasks, savedSnapshots, savedRuns]) => {
       if (disposed) return;
+      try { setOrganizationId(localStorage.getItem("kanako-ai-active-org") ?? ""); } catch { setOrganizationId(""); }
       setMessages(savedMessages.sort((a,b) => a.createdAt.localeCompare(b.createdAt)));
       setTasks(savedTasks.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
       setSnapshot(savedSnapshots.find(item => item.id === "active") ?? null);
