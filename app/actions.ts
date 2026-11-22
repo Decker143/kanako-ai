@@ -179,7 +179,7 @@ export async function reviewAgentRun(formData: FormData) {
   }
 
   const { data: task } = await supabase.from("tasks")
-    .select("id,status").eq("id", run.task_id)
+    .select("id,status,title").eq("id", run.task_id)
     .eq("organization_id", organizationId).maybeSingle();
   if (!task || task.status !== "in_review") {
     redirect("/?view=agents&error=" + encodeURIComponent("The task is no longer waiting for review."));
@@ -223,7 +223,7 @@ export async function reviewAgentRun(formData: FormData) {
       ? "A human reviewer accepted this task output. Reuse its approach only when the new task is materially similar."
       : note,
     created_by: user.id,
-    metadata: { decision, task_title: "reviewed task" },
+    metadata: { decision, task_title: task.title },
   });
   if (learningEventError) {
     redirect("/?view=agents&error=" + encodeURIComponent("The task review was saved, but the learning event could not be recorded. Please retry or inspect the activity log."));
@@ -234,7 +234,7 @@ export async function reviewAgentRun(formData: FormData) {
       organization_id: organizationId,
       agent_id: run.agent_id,
       memory_type: "correction",
-      title: ("Correction: " + note).slice(0, 180),
+      title: ("Correction: " + task.title).slice(0, 180),
       content: note,
       status: "pending",
       source_run_id: run.id,
