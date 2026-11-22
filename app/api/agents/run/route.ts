@@ -139,6 +139,17 @@ export async function POST(request: Request) {
       status: task.status,
       assigned_agent_id: task.assigned_agent_id,
     }).eq("id", task.id).eq("organization_id", membership.organization_id);
+    await supabase.from("agent_learning_events").insert({
+      organization_id: membership.organization_id,
+      agent_id: agent.id,
+      task_id: task.id,
+      agent_run_id: run.id,
+      event_type: "task_failed",
+      feedback: "The AI execution failed before producing a reviewable result.",
+      lesson: "Inspect the execution error and retry only after correcting the underlying cause.",
+      created_by: user.id,
+      metadata: { failure_stage: "generation_or_persistence" },
+    });
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
       action: "ai_agent.task_run_failed", entity_type: "agent_run", entity_id: run.id,
