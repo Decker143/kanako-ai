@@ -75,3 +75,22 @@ AI employee task outputs enter `in_review` after a successful model run. Workspa
 
 
 AI employees can only start tasks in `queued` or `blocked` status. Tasks in `in_review` cannot be rerun or reassigned; an owner/admin must approve the current output or request revisions first. A revision returns the task to `queued`, where a new execution can be started.
+
+
+## Evolving AI employees
+
+KANAKO records task approvals, revision requests, and failed runs in `agent_learning_events`. Reviewer corrections become pending `agent_memories`; owners/admins must approve a memory before it is injected into future runs. AI employees also receive recent learning history and their own approved memories as task context. Memories are scoped to one employee and organization, are never silently written into the employee's core instructions, and cannot override current instructions or safety rules.
+
+This is retrieval-based learning, not model fine-tuning or autonomous self-modification. It improves future behavior by reusing approved feedback and examples while keeping a human review boundary.
+
+## Offline-first workspace
+
+The `/offline` route is a static PWA shell that can be cached by the service worker. It uses WebLLM to run a small quantized Llama 3.2 1B model locally in a WebGPU-capable browser. The model must be downloaded once while online; subsequent local chat can run without sending prompts to a cloud model. Browser/device support and memory availability vary.
+
+Offline task drafts and local chat history are stored in IndexedDB on that device. Task drafts can be manually synchronized to the selected organization when the user is online and signed in. The sync endpoint is idempotent. Offline mode does not provide cloud database access, live web research, shared conversations, or external integrations. Browser storage may be cleared or evicted, so this is not a replacement for backups.
+
+## Permission-gated internet research
+
+AI employees can use the `internet_research` capability only when `KANAKO_WEB_RESEARCH_ENABLED=true` and `BRAVE_SEARCH_API_KEY` are configured on the server. The adapter uses Brave's LLM Context endpoint, returns source URLs and excerpts to the model, and limits each run to a small number of tool steps. Search results are treated as untrusted reference content.
+
+No Brave key or plan has been configured. Brave Search requires an activated plan and prepaid credits; the provider currently advertises $5 per 1,000 requests and $5 monthly credits. Do not enable or purchase it without explicit approval. A model configured for the agent must support tool calling for this feature to work.
