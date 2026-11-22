@@ -92,3 +92,14 @@ Approval is required before:
 - Log key decisions and execution outcomes.
 - Test both positive and negative authorization cases.
 - Verify the exact commit's CI run before calling it healthy.
+
+
+## CEO planning and owner approval
+
+- Owners/admins can save a structured project-plan proposal containing an objective and up to 40 task briefs with optional department, priority, and description.
+- The current planner is owner-authored and deterministic; it does not call a cloud AI provider or claim autonomous task decomposition.
+- A proposal is stored in the reports library with an explicit lifecycle: pending approval → processing → approved, or failed for inspection.
+- Approval creates queued task records in one database insert and records their originating plan in task metadata. Department names must exactly match a department in the active workspace.
+- Created tasks are not automatically assigned to employees or executed. Assignment remains a separate CEO delegation step, and AI execution remains disabled unless separately approved.
+- The reports update policy restricts plan approval state changes to workspace owners/admins. Workspace membership and RLS continue to scope records.
+- If task creation fails, the plan is marked for inspection; the UI warns against retrying blindly. A real workspace end-to-end test is still required.
