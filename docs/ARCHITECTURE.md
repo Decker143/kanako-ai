@@ -103,3 +103,13 @@ Approval is required before:
 - Created tasks are not automatically assigned to employees or executed. Assignment remains a separate CEO delegation step, and AI execution remains disabled unless separately approved.
 - The reports update policy restricts plan approval state changes to workspace owners/admins. Workspace membership and RLS continue to scope records.
 - If task creation fails, the plan is marked for inspection; the UI warns against retrying blindly. A real workspace end-to-end test is still required.
+
+
+## Task progress, blockers, and handoffs
+
+- Task updates are append-only events stored in `task_updates`: progress percentage, notes, blocker reports, handoff requests, and handoff approvals.
+- Progress and notes are recorded against the active workspace task. A blocker or handoff request moves the task to `blocked`, which feeds the CEO Command Center's existing blocker alert.
+- Handoff requests identify a target employee but do not reassign work. Owners/admins must approve the request.
+- Handoff approval runs through an atomic SECURITY INVOKER database function. It locks the task, confirms the request is still the latest handoff decision, then delegates through the existing capacity- and eligibility-checking assignment function and records the approval event.
+- Task-update records are organization-scoped by RLS. Authenticated users can read and append updates only in workspaces they belong to; anonymous access is revoked. Updates are not editable/deletable through the Data API.
+- The current interface records updates submitted by signed-in workspace users. Autonomous AI employees do not yet publish progress events automatically; that requires a separately gated execution callback integration.
