@@ -63,6 +63,17 @@ export async function updateTaskStatus(formData: FormData) {
   const status = String(formData.get("status") ?? "queued");
   const allowed = ["queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
   if (!id || !allowed.includes(status)) return;
+  if (status === "completed") {
+    const { data: pendingRun } = await supabase.from("agent_runs").select("id,output")
+      .eq("organization_id", organizationId).eq("task_id", id).eq("status", "succeeded")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const review = pendingRun?.output && typeof pendingRun.output === "object" && !Array.isArray(pendingRun.output)
+      ? (pendingRun.output as Record<string, unknown>).review as { decision?: string } | undefined
+      : undefined;
+    if (pendingRun && !["approved", "changes_requested"].includes(review?.decision ?? "")) {
+      redirect("/?view=agents&error=" + encodeURIComponent("AI-generated work must be reviewed in AI Workforce before the task can be marked completed."));
+    }
+  }
   const { error } = await supabase.from("tasks").update({
     status, completed_at: status === "completed" ? new Date().toISOString() : null,
   }).eq("id", id).eq("organization_id", organizationId);
