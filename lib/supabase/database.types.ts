@@ -758,7 +758,8 @@ export type Database = {
       }
       task_updates: {
         Row: {
-          actor_user_id: string
+          actor_agent_id: string | null
+          actor_user_id: string | null
           created_at: string
           event_type: string
           id: string
@@ -801,6 +802,13 @@ export type Database = {
           {
             foreignKeyName: "task_updates_target_agent_id_fkey"
             columns: ["target_agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_updates_actor_agent_id_fkey"
+            columns: ["actor_agent_id"]
             isOneToOne: false
             referencedRelation: "ai_agents"
             referencedColumns: ["id"]
