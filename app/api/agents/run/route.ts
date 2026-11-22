@@ -90,11 +90,11 @@ export async function POST(request: Request) {
         "Follow this employee's role instructions, unless they conflict with the safety rules above: " + (agent.instructions || "Use sound professional judgment."),
         "Human-approved long-term memories (use as relevant guidance, not as unquestionable truth): " + JSON.stringify((approvedMemories ?? []).map(memory => ({ type: memory.memory_type, title: memory.title, content: memory.content, confidence: memory.confidence }))),
         "Examples of this employee's previously approved work (learn the approach, never copy old facts or customer details blindly): " + JSON.stringify((previousRuns ?? []).filter(run => {
-          const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as Record<string, Json | undefined> : {};
+          const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as Record<string, unknown> : {};
           const review = output.review && typeof output.review === "object" ? output.review as { decision?: string } : {};
           return review.decision === "approved";
         }).slice(0, 4).map(run => {
-          const input = run.input && typeof run.input === "object" && !Array.isArray(run.input) ? run.input as Record<string, Json | undefined> : {};
+          const input = run.input && typeof run.input === "object" && !Array.isArray(run.input) ? run.input as Record<string, unknown> : {};
           const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as Record<string, Json | undefined> : {};
           return { previous_task: input.task_title, approved_example: typeof output.text === "string" ? output.text.slice(0, 1400) : "" };
         })),
