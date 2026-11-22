@@ -76,7 +76,7 @@ export async function updateTaskStatus(formData: FormData) {
     const review = pendingRun?.output && typeof pendingRun.output === "object" && !Array.isArray(pendingRun.output)
       ? (pendingRun.output as Record<string, unknown>).review as { decision?: string } | undefined
       : undefined;
-    if (pendingRun && !["approved", "changes_requested"].includes(review?.decision ?? "")) {
+    if (pendingRun && review?.decision !== "approved") {
       redirect("/?view=agents&error=" + encodeURIComponent("AI-generated work must be reviewed in AI Workforce before the task can be marked completed."));
     }
   }
