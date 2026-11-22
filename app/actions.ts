@@ -59,12 +59,17 @@ export async function createTask(formData: FormData) {
 }
 
 export async function updateTaskStatus(formData: FormData) {
-  const { supabase, user, organizationId } = await context();
+  const { supabase, user, organizationId, role } = await context();
   const id = String(formData.get("task_id") ?? "");
   const status = String(formData.get("status") ?? "queued");
   const allowed = ["queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
   if (!id || !allowed.includes(status)) return;
   if (status === "completed") {
+    const { data: taskForReview } = await supabase.from("tasks").select("id,status,assigned_agent_id")
+      .eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    if (taskForReview?.status === "in_review" && taskForReview.assigned_agent_id && !["owner", "admin"].includes(role)) {
+      redirect("/?view=agents&error=" + encodeURIComponent("Only a workspace owner or admin can complete an AI-assigned task after review."));
+    }
     const { data: pendingRun } = await supabase.from("agent_runs").select("id,output")
       .eq("organization_id", organizationId).eq("task_id", id).eq("status", "succeeded")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
