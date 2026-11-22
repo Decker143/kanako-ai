@@ -25,9 +25,16 @@ export async function POST(request: Request) {
     .eq("id", conversationId).eq("organization_id", membership.organization_id).maybeSingle();
   if (!conversation) return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
 
+  const { error: userMessageError } = await supabase.from("messages").insert({
+    organization_id: membership.organization_id, conversation_id: conversationId,
+    role: "user", content, metadata: { source: "kanako_ai_chat" },
+  });
+  if (userMessageError) return NextResponse.json({ error: "Your message could not be saved." }, { status: 500 });
+
   if (process.env.KANAKO_AI_EXECUTION_ENABLED !== "true") {
     return NextResponse.json({
-      error: "AI execution is currently locked to prevent unapproved model charges. Your message was not sent to an AI provider. Enable AI execution only after model access and spending are approved.",
+      error: "AI execution is currently locked to prevent unapproved model charges. Your message was saved, but it was not sent to an AI provider. Enable AI execution only after model access and spending are approved.",
+      saved: true,
     }, { status: 503 });
   }
 
@@ -37,11 +44,6 @@ export async function POST(request: Request) {
     .eq("organization_id", membership.organization_id).not("status", "in", '("completed","cancelled")').limit(20);
   const { data: docs } = await supabase.from("knowledge_documents").select("title,content")
     .eq("organization_id", membership.organization_id).limit(8);
-
-  await supabase.from("messages").insert({
-    organization_id: membership.organization_id, conversation_id: conversationId,
-    role: "user", content, metadata: { source: "kanako_ai_chat" },
-  });
 
   try {
     const result = await generateText({
