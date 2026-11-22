@@ -9,7 +9,7 @@ const DB_VERSION = 2;
 type LocalMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
 type LocalTask = { id: string; title: string; description: string; createdAt: string; syncedAt?: string };
 type OfflineAgent = { id: string; name: string; job_title: string; instructions: string | null; department_id: string | null; capabilities: unknown };
-type OfflineCloudTask = { id: string; title: string; description: string | null; status: string; priority: string; department_id: string | null };
+type OfflineCloudTask = { id: string; title: string; description: string | null; status: string; priority: string; department_id: string | null; assigned_agent_id: string | null };
 type OfflineMemory = { agent_id: string; memory_type: string; title: string; content: string; confidence: number };
 type OfflineLearningEvent = { agent_id: string; event_type: string; feedback: string | null; lesson: string | null; created_at: string };
 type OfflineSnapshot = {
@@ -215,7 +215,7 @@ export function OfflineAIWorkspace() {
   async function runOfflineAgent() {
     const engine = engineRef.current;
     const agent = snapshot?.agents.find(item => item.id === selectedAgentId);
-    const task = snapshot?.tasks.find(item => item.id === selectedTaskId);
+    const task = snapshot?.tasks.find(item => item.id === selectedTaskId && (!item.assigned_agent_id || item.assigned_agent_id === selectedAgentId));
     if (!engine || !agent || !task || busy) return;
     if (runs.some(run => run.taskId === task.id)) {
       setSyncMessage("This task already has a local result waiting to sync.");
@@ -340,7 +340,7 @@ export function OfflineAIWorkspace() {
     }
   }
 
-  const availableTasks = (snapshot?.tasks ?? []).filter(task => !runs.some(run => run.taskId === task.id));
+  const availableTasks = (snapshot?.tasks ?? []).filter(task => (!task.assigned_agent_id || task.assigned_agent_id === selectedAgentId) && !runs.some(run => run.taskId === task.id));
   const availableAgents = snapshot?.agents ?? [];
 
   return <div className="offline-workspace">
@@ -370,7 +370,7 @@ export function OfflineAIWorkspace() {
             {!availableTasks.length&&<option value="">No cached queued tasks</option>}
             {availableTasks.map(task=><option key={task.id} value={task.id}>{task.title}</option>)}
           </select>
-          <button className="btn" onClick={runOfflineAgent} disabled={!modelReady || !selectedAgentId || !selectedTaskId || !availableTasks.length || busy}>{busy?"Working…":"Run selected employee offline"}</button>
+          <button className="btn" onClick={runOfflineAgent} disabled={!modelReady || !selectedAgentId || !selectedTaskId || !availableTasks.some(task=>task.id===selectedTaskId) || busy}>{busy?"Working…":"Run selected employee offline"}</button>
         </div>
         {runOutput&&<details className="run-output" open><summary>Current local result</summary><pre>{runOutput}</pre></details>}
         <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || busy || !runs.some(run=>!run.syncedAt)}>Sync AI results</button></div>
