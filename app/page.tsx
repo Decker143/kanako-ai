@@ -72,7 +72,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   const openTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status)).length;
   const pendingApprovals = (approvals ?? []).filter(a => a.status === "pending").length;
   const activeTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status));
-  const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < Date.now());
+  const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < new Date().getTime());
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
   const unassignedTasks = activeTasks.filter(t => !t.assigned_agent_id);
   const failedWorkflowRuns = (workflowRuns ?? []).filter(run => run.status === "failed");
