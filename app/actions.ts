@@ -83,6 +83,78 @@ export async function updateTaskStatus(formData: FormData) {
   revalidatePath("/");
 }
 
+export async function createTaskUpdate(formData: FormData) {
+  const { supabase, user, organizationId } = await context();
+  const taskId = String(formData.get("task_id") ?? "");
+  const eventType = String(formData.get("event_type") ?? "note");
+  const message = String(formData.get("message") ?? "").trim().slice(0, 4000);
+  const progressRaw = String(formData.get("progress_percent") ?? "");
+  const targetAgentId = String(formData.get("target_agent_id") ?? "") || null;
+  if (!taskId || !message || !["progress","note","blocker","handoff_requested"].includes(eventType)) {
+    redirect("/?view=tasks&error=" + encodeURIComponent("Enter an update and choose a valid update type."));
+  }
+  const { data: task } = await supabase.from("tasks").select("id,status,assigned_agent_id")
+    .eq("id", taskId).eq("organization_id", organizationId).maybeSingle();
+  if (!task) redirect("/?view=tasks&error=" + encodeURIComponent("Task not found in this workspace."));
+  let progressPercent: number | null = null;
+  if (eventType === "progress") {
+    progressPercent = Number.parseInt(progressRaw, 10);
+    if (!Number.isInteger(progressPercent) || progressPercent < 0 || progressPercent > 100) {
+      redirect("/?view=tasks&error=" + encodeURIComponent("Progress must be between 0 and 100."));
+    }
+  }
+  if (eventType === "handoff_requested") {
+    if (!targetAgentId || targetAgentId === task.assigned_agent_id) {
+      redirect("/?view=tasks&error=" + encodeURIComponent("Choose a different AI employee for the handoff request."));
+    }
+    const { data: target } = await supabase.from("ai_agents").select("id").eq("id", targetAgentId).eq("organization_id", organizationId).maybeSingle();
+    if (!target) redirect("/?view=tasks&error=" + encodeURIComponent("The handoff target is not in this workspace."));
+  }
+  const { error } = await supabase.from("task_updates").insert({
+    organization_id: organizationId, task_id: taskId, actor_user_id: user.id,
+    event_type: eventType, message, progress_percent: progressPercent,
+    target_agent_id: eventType === "handoff_requested" ? targetAgentId : null,
+  });
+  if (error) redirect("/?view=tasks&error=" + encodeURIComponent("Could not save task update."));
+  if (eventType === "blocker" || eventType === "handoff_requested") {
+    await supabase.from("tasks").update({ status: "blocked" }).eq("id", taskId).eq("organization_id", organizationId);
+  } else if (eventType === "progress" && task.status === "queued") {
+    await supabase.from("tasks").update({ status: "in_progress" }).eq("id", taskId).eq("organization_id", organizationId);
+  }
+  await log(supabase, organizationId, user.id, "task." + eventType, "task", taskId);
+  revalidatePath("/");
+  redirect("/?view=tasks&message=" + encodeURIComponent("Task update saved."));
+}
+
+export async function approveTaskHandoff(formData: FormData) {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner","admin"].includes(role)) redirect("/?view=tasks&error=" + encodeURIComponent("Only an owner or admin can approve a handoff."));
+  const taskId = String(formData.get("task_id") ?? "");
+  const updateId = String(formData.get("update_id") ?? "");
+  if (!taskId || !updateId) return;
+  const { data: request } = await supabase.from("task_updates").select("id,task_id,message,target_agent_id,event_type")
+    .eq("id", updateId).eq("task_id", taskId).eq("organization_id", organizationId).eq("event_type", "handoff_requested").maybeSingle();
+  if (!request?.target_agent_id) redirect("/?view=tasks&error=" + encodeURIComponent("Handoff request not found."));
+  const { data: latest } = await supabase.from("task_updates").select("id,event_type,created_at")
+    .eq("task_id", taskId).eq("organization_id", organizationId).in("event_type", ["handoff_requested","handoff_approved"])
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if (latest?.id !== request.id) redirect("/?view=tasks&error=" + encodeURIComponent("A newer handoff decision already exists."));
+  const { data: result, error: assignError } = await supabase.rpc("assign_task_to_agent", {
+    p_task_id: taskId, p_agent_id: request.target_agent_id, p_organization_id: organizationId,
+    p_rationale: "Owner-approved handoff: " + request.message.slice(0, 350),
+  });
+  if (assignError || !result) redirect("/?view=tasks&error=" + encodeURIComponent(assignError?.message ?? "Handoff assignment failed."));
+  const { error: eventError } = await supabase.from("task_updates").insert({
+    organization_id: organizationId, task_id: taskId, actor_user_id: user.id,
+    event_type: "handoff_approved", message: "Owner approved handoff. " + request.message.slice(0, 3800),
+    target_agent_id: request.target_agent_id,
+  });
+  if (eventError) redirect("/?view=tasks&error=" + encodeURIComponent("Employee reassigned, but the handoff history event could not be saved. Check the activity log."));
+  await log(supabase, organizationId, user.id, "task.handoff_approved", "task", taskId);
+  revalidatePath("/");
+  redirect("/?view=tasks&message=" + encodeURIComponent("Handoff approved and employee reassigned."));
+}
+
 export async function createAgent(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const name = String(formData.get("name") ?? "").trim();
