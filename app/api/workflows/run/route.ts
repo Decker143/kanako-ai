@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getOrganizationContext } from "@/lib/supabase/organization-context";
 import type { Json } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
@@ -22,8 +23,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
 
-  const { data: membership } = await supabase.from("organization_members")
-    .select("organization_id, role").eq("user_id", user.id).limit(1).maybeSingle();
+  const { membership } = await getOrganizationContext(supabase, user.id);
   if (!membership) return NextResponse.json({ error: "No organization workspace was found." }, { status: 403 });
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only workspace owners and admins can run workflows." }, { status: 403 });
