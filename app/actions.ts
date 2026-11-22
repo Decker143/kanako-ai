@@ -171,6 +171,12 @@ export async function reviewAgentRun(formData: FormData) {
   if (!run || run.status !== "succeeded" || !run.task_id) {
     redirect("/?view=agents&error=" + encodeURIComponent("This AI run is not available for review."));
   }
+  const { data: latestRun } = await supabase.from("agent_runs").select("id")
+    .eq("organization_id", organizationId).eq("task_id", run.task_id).eq("status", "succeeded")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (latestRun?.id !== run.id) {
+    redirect("/?view=agents&error=" + encodeURIComponent("A newer AI run exists for this task. Review the latest output instead."));
+  }
 
   const { data: task } = await supabase.from("tasks")
     .select("id,status").eq("id", run.task_id)
