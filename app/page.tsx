@@ -71,6 +71,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
 
   const openTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status)).length;
   const pendingApprovals = (approvals ?? []).filter(a => a.status === "pending").length;
+  const activeTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status));
+  const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < Date.now());
+  const blockedTasks = activeTasks.filter(t => t.status === "blocked");
+  const unassignedTasks = activeTasks.filter(t => !t.assigned_agent_id);
+  const failedWorkflowRuns = (workflowRuns ?? []).filter(run => run.status === "failed");
+  const activeEmployees = (agents ?? []).filter(agent => agent.status === "active");
+  const ceoProfile = (agents ?? []).find(agent => agent.job_title === "AI Chief Executive Officer");
+  const executiveAlerts = [
+    ...overdueTasks.slice(0, 4).map(task => ({ label: "Overdue task", detail: task.title, href: "/?view=tasks" })),
+    ...blockedTasks.slice(0, 4).map(task => ({ label: "Blocked task", detail: task.title, href: "/?view=tasks" })),
+    ...failedWorkflowRuns.slice(0, 3).map(run => ({ label: "Workflow failure", detail: run.error || "A workflow run needs investigation", href: "/?view=workflows" })),
+  ].slice(0, 8);
   const activeConversation = (conversations ?? []).find(c => c.id === params.conversation) ?? conversations?.[0];
   const {data:messages} = activeConversation
     ? await supabase.from("messages").select("id,role,content,created_at").eq("conversation_id",activeConversation.id).eq("organization_id",orgId).order("created_at")
@@ -107,6 +119,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
           <div className="panel stat"><div className="muted">Failed AI runs</div><strong>{(agentRuns??[]).filter(run=>run.status==="failed").length}</strong><span className="muted">Require investigation</span></div>
           <div className="panel stat"><div className="muted">Approved AI work</div><strong>{(agentRuns??[]).filter(run=>(run.output as {review?:{decision?:string}})?.review?.decision==="approved").length}</strong><span className="muted">Human-approved outputs</span></div>
           <div className="panel stat"><div className="muted">Revisions requested</div><strong>{(agentRuns??[]).filter(run=>(run.output as {review?:{decision?:string}})?.review?.decision==="changes_requested").length}</strong><span className="muted">Returned to task queue</span></div>
+        </div>
+        <div className="section-head"><h2>CEO Office · Executive operations brief</h2><span className="pill">{ceoProfile?.status ?? "CEO profile missing"}</span></div>
+        <div className="grid">
+          <div className="panel"><div className="eyebrow">WORKFORCE READINESS</div><h3>{activeEmployees.length} active / {agents?.length ?? 0} profiles</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Only activated employees are counted as active staff. Draft profiles are not treated as operational capacity.</p></div>
+          <div className="panel"><div className="eyebrow">TASK HEALTH</div><h3>{blockedTasks.length} blocked · {overdueTasks.length} overdue</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Based on the latest {tasks?.length ?? 0} task records loaded for this workspace.</p></div>
+          <div className="panel"><div className="eyebrow">ASSIGNMENT COVERAGE</div><h3>{unassignedTasks.length} unassigned</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Open tasks without an employee assignment still need routing or owner review.</p></div>
+          <div className="panel"><div className="eyebrow">WORKFLOW HEALTH</div><h3>{failedWorkflowRuns.length} failed runs</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Latest {workflowRuns?.length ?? 0} workflow run records. Failures are not automatically retried.</p></div>
+        </div>
+        <div className="panel" style={{marginTop:14}}>
+          <div className="row-between"><div><div className="eyebrow">OWNER ATTENTION</div><h3 style={{margin:"4px 0 0"}}>{executiveAlerts.length ? "Items requiring attention" : "No immediate operational alerts"}</h3></div><span className="pill">{executiveAlerts.length} alerts</span></div>
+          {executiveAlerts.length ? <div className="stack" style={{marginTop:12}}>{executiveAlerts.map((alert,index)=><Link key={index} className="row-between subtle-link" href={alert.href} style={{padding:"9px 0",borderTop:"1px solid var(--line)"}}><span><strong>{alert.label}</strong><span className="muted" style={{display:"block",fontSize:12}}>{alert.detail}</span></span><span>Review →</span></Link>)}</div> : <p className="muted" style={{fontSize:12,marginBottom:0}}>No overdue or blocked tasks and no failed workflow runs were found in the records currently loaded.</p>}
         </div>
         <div className="section-head"><h2>Department overview</h2><Link className="subtle-link" href="/?view=departments">View all →</Link></div>
         <div className="grid">{(departments??[]).map(d=><div className="panel" key={d.id}><div style={{fontWeight:700}}>{d.name}</div><p className="muted" style={{fontSize:12,marginBottom:0}}>{d.description||"Department workspace"}</p></div>)}</div>
