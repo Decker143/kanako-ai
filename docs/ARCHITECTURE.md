@@ -61,6 +61,14 @@ Approval is required before:
 - Dashboard queries, server actions, chat, CEO delegation, AI task execution, and workflow execution use the same resolved workspace context.
 - Offline sync continues to accept an organization ID from the local queue only after checking that the signed-in user is a member of that exact organization.
 
+## AI workforce profiles and assignment
+
+- Each AI employee profile stores owner-maintained skill tags, a maximum concurrent-task capacity, and an explicit availability state (`available`, `busy`, or `unavailable`).
+- CEO delegation considers skill overlap with the task, department alignment, remaining capacity, and recent run outcomes. Employees at capacity or not marked available are excluded before model selection.
+- A database assignment function rechecks membership, employee state, task state, capability, and capacity while holding row locks. This prevents concurrent delegation requests from exceeding an employee's configured capacity.
+- The assignment function runs as the authenticated caller and remains subject to row-level security; it does not bypass table policies.
+- Delegation assigns work only. AI execution remains separately gated and task completion still requires human review.
+
 ## Cost and deployment controls
 
 - Keep cloud AI execution disabled until the owner explicitly approves provider/model and budget.
