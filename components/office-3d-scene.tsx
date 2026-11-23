@@ -7,7 +7,7 @@ import * as THREE from "three";
 
 type SceneAgent = {
   id: string; name: string; jobTitle: string; status: string;
-  departmentColor: string; working: boolean; taskCount: number; currentTask?: string | null; destination?: string | null;
+  departmentColor: string; working: boolean; taskCount: number; currentTask?: string | null; destination?: string | null; meetingSlot?: number;
 };
 type DeskProps = {
   agent: SceneAgent; position: [number, number, number];
@@ -24,10 +24,10 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   useFrame(({ clock }, delta) => {
     if (character.current) {
       const moving = agent.destination === "collaboration_hub";
-      const target = moving ? new THREE.Vector3(-position[0], 0, 8.4 - position[2]) : new THREE.Vector3(0, 0, -0.92);
+      const angle = ((agent.meetingSlot ?? 0) % 6) * (Math.PI / 3);\n      const target = moving ? new THREE.Vector3(Math.cos(angle) * 2.35 - position[0], 0, 8.4 + Math.sin(angle) * 2.35 - position[2]) : new THREE.Vector3(0, 0, -0.92);
       character.current.position.lerp(target, 1 - Math.exp(-delta * 1.7));
       character.current.position.y = (agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0) + (moving ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.035 : 0);
-      character.current.rotation.y = moving ? Math.PI : 0;
+      character.current.rotation.y = moving ? Math.atan2(-Math.cos(angle), -Math.sin(angle)) : 0;
     }
     if (leftArm.current) leftArm.current.rotation.x = agent.destination === "collaboration_hub" ? Math.sin(clock.elapsedTime * 8) * 0.35 : agent.working ? Math.sin(clock.elapsedTime * 5) * 0.12 : 0;
     if (rightArm.current) rightArm.current.rotation.x = agent.destination === "collaboration_hub" ? Math.cos(clock.elapsedTime * 8) * 0.35 : agent.working ? Math.cos(clock.elapsedTime * 5) * 0.12 : 0;
