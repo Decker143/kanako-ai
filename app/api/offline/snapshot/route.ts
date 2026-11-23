@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     departments: departments ?? [],
     memories: memories ?? [],
     learningEvents: learningEvents ?? [],
-    knowledgeDocuments: (knowledgeDocuments ?? []).map(document => ({ title: document.title, content: document.content.slice(0, 5000) })),
+    knowledgeDocuments: (knowledgeDocuments ?? []).map(document => ({ title: document.title, content: (document.content ?? "").slice(0, 5000) })),
     previousRuns: (previousRuns ?? []).filter(run => {
       const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as { review?: { decision?: string } } : {};
       return output.review?.decision === "approved";
