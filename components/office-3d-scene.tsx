@@ -222,6 +222,14 @@ export function Office3DScene({ agents, selected, onSelect }: {
         <fog attach="fog" args={["#111a2a", 18, 34]} />
         <SceneContents agents={sceneAgents} selected={selected} onSelect={onSelect} />
       </Canvas>
+      {sceneAgents.length === 0 && (
+        <div role="status" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", padding: 24, pointerEvents: "none" }}>
+          <div style={{ maxWidth: 360, padding: "20px 24px", border: "1px solid rgba(148,163,184,.28)", borderRadius: 16, background: "rgba(12,20,34,.92)", color: "#e2e8f0", textAlign: "center", boxShadow: "0 18px 50px rgba(0,0,0,.28)" }}>
+            <strong style={{ display: "block", fontSize: 15, letterSpacing: ".08em" }}>YOUR OFFICE IS READY</strong>
+            <span style={{ display: "block", marginTop: 8, color: "#a8b4c8", fontSize: 13, lineHeight: 1.6 }}>No AI employees are available in this view yet. Add employees or choose another department to populate the workspace.</span>
+          </div>
+        </div>
+      )}
       <div className="office-3d-hint">DRAG TO ROTATE · SCROLL TO ZOOM · CLICK AN EMPLOYEE</div>
     </div>
   );
