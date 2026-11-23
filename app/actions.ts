@@ -429,9 +429,15 @@ export async function reviewAgentRun(formData: FormData) {
 
   const { data: updatedTask, error: taskError } = await supabase.from("tasks").update({
     status: nextTaskStatus,
-    completed_at: decision === "approved" ? reviewedAt : null,
+    completed_at: decision === "approved" && !isOfflineSpecification ? reviewedAt : null,
   }).eq("id", task.id).eq("organization_id", organizationId).eq("status", "in_review")
     .select("id").maybeSingle();
+
+  if (taskError || !updatedTask) {
+    await supabase.from("agent_runs").update({ output: previousOutput })
+      .eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded");
+    redirect("/?view=agents&error=" + encodeURIComponent("The task changed before the review could be applied. The review record was rolled back."));
+  }
 
   if (decision === "approved" && isOfflineSpecification) {
     const { error: taskNoteError } = await supabase.from("task_updates").insert({
@@ -446,11 +452,6 @@ export async function reviewAgentRun(formData: FormData) {
     if (taskNoteError) {
       redirect("/?view=agents&error=" + encodeURIComponent("The specification was approved and the implementation task remains open, but its task-history note could not be recorded."));
     }
-  }
-  if (taskError || !updatedTask) {
-    await supabase.from("agent_runs").update({ output: previousOutput })
-      .eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded");
-    redirect("/?view=agents&error=" + encodeURIComponent("The task changed before the review could be applied. The review record was rolled back."));
   }
 
   const { error: learningEventError } = await supabase.from("agent_learning_events").insert({
