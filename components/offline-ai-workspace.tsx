@@ -29,24 +29,33 @@ type LocalRun = { id: string; agentId: string; taskId: string; output: string; m
 
 function reviewLocalOutput(output: string, taskTitle: string) {
   const text = output.trim();
-  const words = text.split(/\\s+/).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean);
   const issues: string[] = [];
-  if (words.length < 100) issues.push("The result is very short and may not contain enough detail for this task.");
+  if (words.length < 100) issues.push(`The result contains only ${words.length} words and may need more task-specific detail.`);
   if (words.length > 700) issues.push("The result is overly long; review it for repetition and unnecessary detail.");
-  const headings = text.split(/\\n/).map(line => line.trim().replace(/^#+\\s*/, "").replace(/:$/, "").toLowerCase()).filter(Boolean);
+  const lines = text.split(/\n/).map(line => line.trim()).filter(Boolean);
+  const headings = lines.filter(line => /^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line))
+    .map(line => line.replace(/^#{1,6}\s*/, "").replace(/^\*\*|\*\*$/g, "").replace(/:$/, "").toLowerCase());
   const repeated = headings.filter((heading, index) => headings.indexOf(heading) !== index);
   if (repeated.length) issues.push("One or more section headings are repeated.");
+  const requiredHeadings = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
+  const missingHeadings = requiredHeadings.filter(heading => !headings.some(actual => actual.includes(heading)));
+  if (missingHeadings.length) issues.push(`Missing required sections: ${missingHeadings.join(", ")}.`);
+  const meaningfulTerms = taskTitle.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 3);
   const lower = text.toLowerCase();
-  if (!lower.includes(taskTitle.toLowerCase().slice(0, Math.min(18, taskTitle.length)))) {
-    issues.push("The output does not clearly reference the assigned task title.");
+  const matchedTerms = meaningfulTerms.filter(term => lower.includes(term));
+  if (!meaningfulTerms.length || matchedTerms.length < Math.min(2, meaningfulTerms.length)) {
+    issues.push("The output does not clearly reference the assigned task.");
   }
-  if (/\\b(i have (built|implemented|deployed|updated)|successfully (built|implemented|deployed))\\b/i.test(text)) {
+  const bodyLines = lines.filter(line => !/^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line));
+  const normalized = bodyLines.map(line => line.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()).filter(line => line.length > 35);
+  if (normalized.some((line, index) => normalized.indexOf(line) !== index)) issues.push("One or more content lines are repeated.");
+  if (/\b(i have (built|implemented|deployed|updated)|successfully (built|implemented|deployed))\b/i.test(text)) {
     issues.push("The output may claim implementation work that a text-only local run cannot perform.");
   }
   const status = issues.length ? "needs_revision" as const : "ready_for_review" as const;
   return { status, wordCount: words.length, issues };
-}
-type StoreName = "messages" | "tasks" | "snapshots" | "runs";
+}type StoreName = "messages" | "tasks" | "snapshots" | "runs";
 type LocalEngine = {
   chat: {
     completions: {
