@@ -21,8 +21,8 @@ type Meeting = { id:string; title:string; agenda:string; status:string; schedule
 function initials(name:string) { return name.split(/\s+/).slice(0,2).map(part=>part[0]??"").join("").toUpperCase(); }
 function label(value:string) { return value.replaceAll("_"," ").replace(/\b\w/g, c=>c.toUpperCase()); }
 
-export function VirtualOffice({ organizationName, organizationId, agents, departments, tasks, runs, officeCommands, meetings }: {
-  organizationName:string; organizationId:string; agents:Agent[]; departments:Department[]; tasks:Task[]; runs:Run[]; officeCommands:OfficeCommand[]; meetings:Meeting[];
+export function VirtualOffice({ organizationName, organizationId, agents, departments, tasks, taskContextStatus, runs, officeCommands, meetings }: {
+  organizationName:string; organizationId:string; agents:Agent[]; departments:Department[]; tasks:Task[]; taskContextStatus:"loaded"|"empty"|"unavailable"; runs:Run[]; officeCommands:OfficeCommand[]; meetings:Meeting[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(agents[0]?.id ?? null);
@@ -113,6 +113,7 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
       organizationId={organizationId}
       agents={agents.map(agent => ({ id: agent.id, name: agent.name, jobTitle: agent.jobTitle, departmentId: agent.departmentId }))}
       meetings={meetings}
+      taskContextStatus={taskContextStatus}
       taskContext={tasks.map(task => ({
         title: task.title,
         status: task.status,
