@@ -80,6 +80,7 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
           status: agent.status,
           departmentColor: departmentById.get(agent.departmentId ?? "")?.color ?? "#8b7cff",
           working: activeRuns.some(run => run.agentId === agent.id),
+          currentTask: (() => { const run = activeRuns.find(item => item.agentId === agent.id); return run?.taskId ? tasks.find(task => task.id === run.taskId)?.title ?? "Task in progress" : null; })(),
           taskCount: openTasks.filter(task => task.agentId === agent.id).length,
         }))}
         selected={selected}
