@@ -249,7 +249,7 @@ export async function updateAgentProfile(formData: FormData) {
   if (error) redirect("/?view=agents&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "agent.profile_updated", "ai_agent", id);
   revalidatePath("/");
-  redirect("/?view=agents");
+  redirect("/?view=agents&success=" + encodeURIComponent("Employee profile saved successfully. Kanako's profile details are now up to date."));
 }
 
 export async function updateAgentCapabilities(formData: FormData) {
