@@ -25,6 +25,9 @@ create table if not exists public.office_meeting_attendees (
   unique (meeting_id, agent_id)
 );
 create index if not exists office_meeting_attendees_meeting_idx on public.office_meeting_attendees (meeting_id);
+create index if not exists office_meetings_created_by_idx on public.office_meetings (created_by);
+create index if not exists office_meeting_attendees_org_idx on public.office_meeting_attendees (organization_id);
+create index if not exists office_meeting_attendees_agent_idx on public.office_meeting_attendees (agent_id);
 alter table public.office_meetings enable row level security;
 alter table public.office_meeting_attendees enable row level security;
 revoke all on public.office_meetings from anon;
