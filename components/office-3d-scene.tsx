@@ -37,27 +37,27 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
         <boxGeometry args={[1.1, 0.1, 0.65]} />
         <meshStandardMaterial color="#344158" />
       </mesh>
-      <mesh position={[0, 1.12, -0.32]} castShadow>
+      <mesh position={[0, 1.12, 0.32]} castShadow>
         <boxGeometry args={[0.76, 0.52, 0.08]} />
         <meshStandardMaterial color="#111827" metalness={0.55} roughness={0.25} />
       </mesh>
-      <mesh ref={screen} position={[0, 1.12, -0.27]}>
+      <mesh ref={screen} position={[0, 1.12, 0.37]}>
         <planeGeometry args={[0.65, 0.4]} />
         <meshStandardMaterial color={agent.working ? "#0d6d5a" : "#273d65"} emissive={glow} emissiveIntensity={agent.working ? 0.7 : 0.12} />
       </mesh>
-      <mesh position={[0, 0.87, -0.3]}>
+      <mesh position={[0, 0.87, 0.3]}>
         <cylinderGeometry args={[0.035, 0.035, 0.22, 8]} />
         <meshStandardMaterial color="#73819b" />
       </mesh>
-      <mesh position={[0.68, 0.77, -0.1]}>
+      <mesh position={[0.68, 0.77, 0.1]}>
         <boxGeometry args={[0.2, 0.06, 0.28]} />
         <meshStandardMaterial color="#1d2638" />
       </mesh>
-      <mesh position={[-0.7, 0.76, -0.05]}>
+      <mesh position={[-0.7, 0.76, 0.05]}>
         <cylinderGeometry args={[0.09, 0.09, 0.05, 16]} />
         <meshStandardMaterial color="#b6a48d" />
       </mesh>
-      <group position={[0, 0, 0.92]}>
+      <group position={[0, 0, -0.92]}>
         <mesh position={[0, 0.56, 0]} castShadow>
           <boxGeometry args={[0.7, 0.12, 0.68]} />
           <meshStandardMaterial color="#34445b" />
@@ -89,7 +89,7 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
         <Html position={[0, 1.92, -0.2]} center distanceFactor={11} style={{ pointerEvents: "none" }}>
           <div className={`office-3d-label ${selected ? "selected" : ""}`}>
             <strong>{agent.name}</strong>
-            <span>{agent.working ? "● WORKING" : agent.status === "active" ? "● AVAILABLE" : "● INACTIVE"}</span>
+            <span>{agent.working ? "● WORKING" : agent.status === "active" ? "● AVAILABLE" : "● INACTIVE"}</span><small>{agent.jobTitle}</small>{agent.taskCount > 0 && <em>{agent.taskCount} OPEN TASK{agent.taskCount === 1 ? "" : "S"}</em>}
           </div>
         </Html>
       </group>
@@ -115,7 +115,7 @@ function Plant({ position }: { position: [number, number, number] }) {
   </group>;
 }
 
-function OfficeArchitecture({ agents }: { agents: SceneAgent[] }) {
+function OfficeArchitecture() {
   const chairs = useMemo(() => Array.from({ length: 6 }, (_, i) => i * Math.PI / 3), []);
   return <>
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]} receiveShadow>
@@ -167,7 +167,7 @@ function SceneContents({ agents, selected, onSelect }: {
     return [-6.8 + col * 3.4, 0, -2.5 + row * 3.2];
   }), [agents]);
   return <>
-    <OfficeArchitecture agents={agents} />
+    <OfficeArchitecture />
     {agents.map((agent, index) => <Workstation key={agent.id} agent={agent} position={positions[index]} selected={selected === agent.id} onSelect={onSelect} />)}
     <OrbitControls makeDefault minDistance={11} maxDistance={25} maxPolarAngle={Math.PI / 2.05} minPolarAngle={0.45} target={[0, 0.4, -0.2]} />
   </>;
