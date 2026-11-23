@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { OfficeMeetingsPanel } from "@/components/office-meetings-panel";
 
 const Office3DScene = dynamic(() => import("./office-3d-scene").then((module) => module.Office3DScene), {
   ssr: false,
@@ -15,6 +16,7 @@ type Department = { id:string; name:string; color:string };
 type Task = { id:string; title:string; status:string; priority:string; agentId:string|null; departmentId:string|null; updatedAt:string };
 type Run = { id:string; agentId:string; taskId:string|null; status:string; createdAt:string; startedAt:string|null; finishedAt:string|null };
 type OfficeCommand = { id:string; agentId:string; command:string; destination:string; status:string; createdAt:string };
+type Meeting = { id:string; title:string; agenda:string; status:string; scheduledFor:string|null; notes:string; decisions:string; actionItems:{text:string;completed?:boolean}[]; createdAt:string; attendees:{agentId:string;attendanceStatus:string}[] };
 
 function initials(name:string) { return name.split(/\s+/).slice(0,2).map(part=>part[0]??"").join("").toUpperCase(); }
 function label(value:string) { return value.replaceAll("_"," ").replace(/\b\w/g, c=>c.toUpperCase()); }
@@ -107,7 +109,7 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
       <div className="office-scene-legend"><span><i className="legend-working"/> Running task</span><span><i className="legend-ready"/> Active profile</span><span><i className="legend-idle"/> Inactive profile</span><span className="muted">Employee activity is based on saved agent execution records.</span></div>
     </section>
 
-    <section className="office-lower">
+    <OfficeMeetingsPanel organizationId={organizationId} agents={agents.map(agent => ({ id: agent.id, name: agent.name, jobTitle: agent.jobTitle, departmentId: agent.departmentId }))} meetings={meetings} />\n\n    <section className="office-lower">
       <div className="office-inspector">
         <div className="eyebrow">EMPLOYEE PROFILE</div>
         {selectedAgent ? <>
