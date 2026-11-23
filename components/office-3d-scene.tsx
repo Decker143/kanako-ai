@@ -7,7 +7,7 @@ import * as THREE from "three";
 
 type SceneAgent = {
   id: string; name: string; jobTitle: string; status: string;
-  departmentColor: string; working: boolean; taskCount: number;
+  departmentColor: string; working: boolean; taskCount: number; currentTask?: string | null;
 };
 type DeskProps = {
   agent: SceneAgent; position: [number, number, number];
@@ -17,13 +17,15 @@ type DeskProps = {
 function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   const screen = useRef<THREE.Mesh>(null);
   const character = useRef<THREE.Group>(null);
-  const leftArm = useRef<THREE.Mesh>(null);
-  const rightArm = useRef<THREE.Mesh>(null);
+  const leftArm = useRef<THREE.Group>(null);
+  const rightArm = useRef<THREE.Group>(null);
+  const head = useRef<THREE.Group>(null);
   const glow = agent.working ? "#59e6b0" : agent.departmentColor;
   useFrame(({ clock }) => {
     if (character.current) character.current.position.y = agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0;
     if (leftArm.current) leftArm.current.rotation.x = agent.working ? Math.sin(clock.elapsedTime * 5) * 0.12 : 0;
     if (rightArm.current) rightArm.current.rotation.x = agent.working ? Math.cos(clock.elapsedTime * 5) * 0.12 : 0;
+    if (head.current) { head.current.rotation.y = agent.working ? Math.sin(clock.elapsedTime * 0.8) * 0.035 : Math.sin(clock.elapsedTime * 0.35) * 0.025; head.current.rotation.x = agent.working ? Math.sin(clock.elapsedTime * 1.7) * 0.018 : 0; }
     if (screen.current && agent.working) {
       const pulse = 0.7 + Math.sin(clock.elapsedTime * 3.2) * 0.18;
       (screen.current.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
@@ -92,42 +94,24 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
           <boxGeometry args={[0.16, 0.09, 0.3]} />
           <meshStandardMaterial color="#171f30" roughness={0.8} />
         </mesh>
-        <mesh position={[0, 1.38, -0.2]} castShadow>
-          <sphereGeometry args={[0.23, 20, 16]} />
-          <meshStandardMaterial color="#d6b69b" roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 1.53, -0.23]}>
-          <sphereGeometry args={[0.235, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.48]} />
-          <meshStandardMaterial color="#342b2d" roughness={1} />
-        </mesh>
-        <mesh position={[-0.205, 1.39, -0.17]} rotation={[0, 0, -0.18]}>
-          <sphereGeometry args={[0.075, 10, 10]} />
-          <meshStandardMaterial color="#342b2d" roughness={1} />
-        </mesh>
-        <mesh position={[0.205, 1.39, -0.17]} rotation={[0, 0, 0.18]}>
-          <sphereGeometry args={[0.075, 10, 10]} />
-          <meshStandardMaterial color="#342b2d" roughness={1} />
-        </mesh>
-        <mesh position={[0.09, 1.39, 0.005]}>
-          <sphereGeometry args={[0.018, 8, 8]} />
-          <meshBasicMaterial color="#24202a" />
-        </mesh>
-        <mesh position={[-0.09, 1.39, 0.005]}>
-          <sphereGeometry args={[0.018, 8, 8]} />
-          <meshBasicMaterial color="#24202a" />
-        </mesh>
-        <mesh ref={leftArm} position={[-0.23, 1.0, 0.08]} rotation={[0.4, 0, -0.35]}>
-          <capsuleGeometry args={[0.055, 0.32, 4, 8]} />
-          <meshStandardMaterial color="#d6b69b" />
-        </mesh>
-        <mesh ref={rightArm} position={[0.23, 1.0, 0.08]} rotation={[0.4, 0, 0.35]}>
-          <capsuleGeometry args={[0.055, 0.32, 4, 8]} />
-          <meshStandardMaterial color="#d6b69b" />
-        </mesh>
+        <group ref={head} position={[0, 1.38, -0.2]}>
+          <mesh castShadow><sphereGeometry args={[0.23, 20, 16]} /><meshStandardMaterial color="#d6b69b" roughness={0.9} /></mesh>
+          <mesh position={[0, 0.15, -0.03]}><sphereGeometry args={[0.235, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.48]} /><meshStandardMaterial color="#342b2d" roughness={1} /></mesh>
+          <mesh position={[-0.205, 0.01, 0.03]} rotation={[0, 0, -0.18]}><sphereGeometry args={[0.075, 10, 10]} /><meshStandardMaterial color="#342b2d" roughness={1} /></mesh>
+          <mesh position={[0.205, 0.01, 0.03]} rotation={[0, 0, 0.18]}><sphereGeometry args={[0.075, 10, 10]} /><meshStandardMaterial color="#342b2d" roughness={1} /></mesh>
+          <mesh position={[0.09, 0.01, 0.205]}><sphereGeometry args={[0.018, 8, 8]} /><meshBasicMaterial color="#24202a" /></mesh>
+          <mesh position={[-0.09, 0.01, 0.205]}><sphereGeometry args={[0.018, 8, 8]} /><meshBasicMaterial color="#24202a" /></mesh>
+        </group>
+        <group ref={leftArm} position={[-0.23, 1.08, 0.08]}>
+          <mesh rotation={[0.4, 0, -0.35]}><capsuleGeometry args={[0.055, 0.32, 4, 8]} /><meshStandardMaterial color="#d6b69b" /></mesh>
+        </group>
+        <group ref={rightArm} position={[0.23, 1.08, 0.08]}>
+          <mesh rotation={[0.4, 0, 0.35]}><capsuleGeometry args={[0.055, 0.32, 4, 8]} /><meshStandardMaterial color="#d6b69b" /></mesh>
+        </group>
         <Html position={[0, 1.92, -0.2]} center distanceFactor={11} style={{ pointerEvents: "none" }}>
           <div className={`office-3d-label ${selected ? "selected" : ""}`}>
             <strong>{agent.name}</strong>
-            <span>{agent.working ? "● WORKING" : agent.status === "active" ? "● AVAILABLE" : "● INACTIVE"}</span><small>{agent.jobTitle}</small>{agent.taskCount > 0 && <em>{agent.taskCount} OPEN TASK{agent.taskCount === 1 ? "" : "S"}</em>}
+            <span>{agent.working ? "● EXECUTING TASK" : agent.status === "active" ? "● AVAILABLE" : "● INACTIVE"}</span><small>{agent.jobTitle}</small>{agent.working && agent.currentTask && <em className="office-3d-current-task">{agent.currentTask}</em>}{agent.taskCount > 0 && <em>{agent.taskCount} OPEN TASK{agent.taskCount === 1 ? "" : "S"}</em>}
           </div>
         </Html>
       </group>
