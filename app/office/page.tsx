@@ -14,7 +14,7 @@ export default async function OfficePage() {
   if (!membership) redirect("/");
 
   const orgId = membership.organization_id;
-  const [{ data: organization }, { data: agents }, { data: departments }, { data: tasks }, { data: runs }, { data: officeCommands }, { data: meetings }] = await Promise.all([
+  const [{ data: organization }, { data: agents }, { data: departments }, taskResult, { data: runs }, { data: officeCommands }, { data: meetings }] = await Promise.all([
     supabase.from("organizations").select("name").eq("id", orgId).single(),
     supabase.from("ai_agents").select("id,name,job_title,description,status,availability_status,department_id,capabilities,skills").eq("organization_id", orgId).order("created_at", { ascending: true }),
     supabase.from("departments").select("id,name,color").eq("organization_id", orgId).order("name"),
@@ -35,7 +35,8 @@ export default async function OfficePage() {
       skills: Array.isArray(agent.skills) ? agent.skills.filter((item): item is string => typeof item === "string").slice(0, 3) : [],
     }))}
     departments={(departments ?? []).map(department => ({ id: department.id, name: department.name, color: department.color ?? "#8b7cff" }))}
-    tasks={(tasks ?? []).map(task => ({ id: task.id, title: task.title, status: task.status, priority: task.priority, agentId: task.assigned_agent_id, departmentId: task.department_id, updatedAt: task.updated_at }))}
+    taskContextStatus={taskResult.error ? "unavailable" : (taskResult.data?.length ? "loaded" : "empty")}
+    tasks={(taskResult.data ?? []).map(task => ({ id: task.id, title: task.title, status: task.status, priority: task.priority, agentId: task.assigned_agent_id, departmentId: task.department_id, updatedAt: task.updated_at }))}
     runs={(runs ?? []).map(run => ({ id: run.id, agentId: run.agent_id, taskId: run.task_id, status: run.status, createdAt: run.created_at, startedAt: run.started_at, finishedAt: run.finished_at }))}
     officeCommands={(officeCommands ?? []).map(command => ({ id: command.id, agentId: command.agent_id, command: command.command, destination: command.destination, status: command.status, createdAt: command.created_at }))}
     meetings={(meetings ?? []).map(meeting => ({
