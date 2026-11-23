@@ -96,6 +96,7 @@ export function OfflineAIWorkspace() {
   const [busy, setBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [refreshingSnapshot, setRefreshingSnapshot] = useState(false);
+  const [runStatus, setRunStatus] = useState("");
 
   async function refreshSnapshot(orgId: string) {
     if (!orgId) {
@@ -236,13 +237,17 @@ export function OfflineAIWorkspace() {
     const engine = engineRef.current;
     const agent = snapshot?.agents.find(item => item.id === selectedAgentId);
     const task = snapshot?.tasks.find(item => item.id === selectedTaskId && (!item.assigned_agent_id || item.assigned_agent_id === selectedAgentId));
-    if (!engine || !agent || !task || busy) return;
+    if (busy) { setRunStatus("Another local AI operation is already running. Wait for it to finish."); return; }
+    if (!engine) { setRunStatus("Local AI engine is not loaded in memory. Click the local model button to load it again, then retry."); return; }
+    if (!agent) { setRunStatus("No cached employee is selected. Refresh the offline snapshot and select an employee."); return; }
+    if (!task) { setRunStatus("No eligible cached task is selected for this employee. Check the task assignment or refresh the snapshot."); return; }
     if (runs.some(run => run.taskId === task.id && !run.syncedAt)) {
-      setSyncMessage("This task already has a local result waiting to sync.");
+      setRunStatus("This task already has a local result waiting to sync. Review or sync that result before running it again.");
       return;
     }
     setBusy(true);
     setRunOutput("");
+    setRunStatus("Starting offline run for " + agent.name + "…");
     setSyncMessage("Running " + agent.name + " locally. No cloud AI request is being made.");
     try {
       const memories = (snapshot?.memories ?? []).filter(memory => memory.agent_id === agent.id);
@@ -269,6 +274,7 @@ export function OfflineAIWorkspace() {
         "Organize the deliverable using these headings: Task understanding; Execution plan; Deliverable; Acceptance checks; Assumptions and blockers; Recommended next step. Be specific, avoid repetition, and do not claim unfinished work is complete.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
+      setRunStatus("Kanako is preparing the task instructions and local context…");
       const stream = await engine.chat.completions.create({
         messages: [
           { role: "system", content: system },
@@ -281,6 +287,7 @@ export function OfflineAIWorkspace() {
       for await (const chunk of stream) {
         output += chunk.choices[0]?.delta?.content ?? "";
         setRunOutput(output);
+        setRunStatus("Kanako is working locally… " + output.length + " characters generated.");
       }
       if (!output.trim()) throw new Error("The local model returned an empty result. Please try again.");
       const localRun: LocalRun = {
@@ -293,9 +300,12 @@ export function OfflineAIWorkspace() {
       };
       await saveRecord("runs", localRun);
       setRuns(current => [localRun, ...current]);
+      setRunStatus("Offline run completed successfully. " + agent.name + " generated a result for “" + task.title + "” and saved it on this device. Human review is still required.");
       setSyncMessage("Local result saved on this device. It is not yet in the cloud and still needs human review after synchronization.");
     } catch (error) {
-      setSyncMessage(error instanceof Error ? error.message : "The local AI employee could not run this task.");
+      const message = error instanceof Error ? error.message : "The local AI employee could not run this task.";
+      setRunStatus("Offline run failed: " + message);
+      setSyncMessage(message);
     } finally {
       setBusy(false);
     }
@@ -402,7 +412,8 @@ export function OfflineAIWorkspace() {
             {!availableTasks.length&&<option value="">No cached queued tasks</option>}
             {availableTasks.map(task=><option key={task.id} value={task.id}>{task.title}</option>)}
           </select>
-          <button className="btn" onClick={runOfflineAgent} disabled={!modelReady || !selectedAgentId || !selectedTaskId || !availableTasks.some(task=>task.id===selectedTaskId) || busy}>{busy?"Working…":"Run selected employee offline"}</button>
+          <button className="btn" onClick={runOfflineAgent} disabled={!modelReady || !selectedAgentId || !selectedTaskId || !availableTasks.some(task=>task.id===selectedTaskId) || busy}>{busy?"Running offline…":"Run selected employee offline"}</button>
+          {runStatus && <div role={runStatus.startsWith("Offline run failed:") ? "alert" : "status"} aria-live="polite" className="notice" style={{marginTop:10}}>{runStatus}</div>}
         </div>
         {runOutput&&<details className="run-output" open><summary>Current local result</summary><pre>{runOutput}</pre></details>}
         <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || !organizationId || !runs.some(run=>!run.syncedAt)}>Sync results</button></div>
