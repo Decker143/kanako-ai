@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn, signUp } from "@/app/auth/actions";
+import { signIn, signUp, resendConfirmation } from "@/app/auth/actions";
 
 export function AuthForm({ error, message }: { error?: string; message?: string }) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -16,6 +16,11 @@ export function AuthForm({ error, message }: { error?: string; message?: string 
         <button className="btn" type="submit" style={{marginTop:8}}>{mode === "signin" ? "Sign in" : "Create account"}</button>
       </form>
       <p className="muted" style={{fontSize:13,textAlign:"center",marginTop:22}}>{mode === "signin" ? "First time setting up KANAKO AI?" : "Already created an owner account?"} <button className="btn secondary" style={{padding:"6px 9px",marginLeft:5}} onClick={() => setMode(mode === "signin" ? "signup" : "signin")} type="button">{mode === "signin" ? "Create account" : "Sign in"}</button></p>
+      {mode === "signin" && <form action={resendConfirmation} className="form-stack" style={{marginTop:16}}>
+        <label className="muted" style={{fontSize:12}}>Didn’t receive or couldn’t use your confirmation email?</label>
+        <input className="field" name="email" type="email" required autoComplete="email" placeholder="Your registration email" />
+        <button className="btn secondary" type="submit">Resend confirmation email</button>
+      </form>}
     </div><p className="muted" style={{fontSize:11,textAlign:"center",marginTop:18}}>Your data is protected by Supabase authentication and organization-level access policies.</p>
   </div></div>;
 }
