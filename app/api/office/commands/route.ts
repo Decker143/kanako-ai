@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Only the workspace owner or admin can move AI employees." }, { status: 403 });
   }
 
-  const validCommand = command === "call_to_meeting" ? "call_to_meeting" : "return_to_workstation";\n  const destination = validCommand === "call_to_meeting" ? "collaboration_hub" : "workstation";
+  const validCommand = command === "call_to_meeting" ? "call_to_meeting" : "return_to_workstation";
+  const destination = validCommand === "call_to_meeting" ? "collaboration_hub" : "workstation";
   const rows = agentIds.map(agent_id => ({
     organization_id: organizationId, agent_id, command: validCommand, destination, created_by: user.id,
   }));
