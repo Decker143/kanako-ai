@@ -15,9 +15,8 @@ type LocalMeetingEngine = {
     completions: {
       create: (args: {
         messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
-        stream?: boolean;
         temperature?: number;
-      }) => Promise<AsyncIterable<{ choices: Array<{ delta?: { content?: string } }> }>>;
+      }) => Promise<{ choices: Array<{ message?: { content?: string } }> }>;
     };
   };
 };
@@ -133,9 +132,10 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       attendance: item.attendanceStatus,
     }));
     setBusy(true);
-    setMessage("");
+    setMessage("Local AI is generating the meeting draft on this device. Please keep this tab open; generation may take a little while.");
+    setLocalModelMessage("Generating the meeting draft locally…");
     try {
-      const stream = await engine.chat.completions.create({
+      const completion = await engine.chat.completions.create({
         messages: [
           {
             role: "system",
@@ -158,17 +158,15 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
             }),
           },
         ],
-        stream: true,
         temperature: 0.35,
       });
-      let output = "";
-      for await (const chunk of stream) {
-        output += chunk.choices[0]?.delta?.content ?? "";
-        setDrafts(current => {
-          const existing = getDraft(meeting);
-          return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED DISCUSSION DRAFT — NOT A TRANSCRIPT\n\n" + output } };
-        });
-      }
+      const output = completion.choices[0]?.message?.content?.trim() ?? "";
+      if (!output) throw new Error("The local model completed but returned an empty response. Please try again.");
+      setDrafts(current => {
+        const existing = getDraft(meeting);
+        return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED DISCUSSION DRAFT — NOT A TRANSCRIPT\n\n" + output } };
+      });
+      setLocalModelMessage("Local AI draft generated successfully. It is ready for your review."); 
       setMessage("Free local AI draft prepared. It used only the meeting title, agenda, and attendee list; it did not access cloud tasks or record a real discussion. Review and save it yourself.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.");
