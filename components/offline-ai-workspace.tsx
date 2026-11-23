@@ -31,14 +31,14 @@ function reviewLocalOutput(output: string, taskTitle: string, allowedDepartments
   const text = output.trim();
   const words = text.split(/\s+/).filter(Boolean);
   const issues: string[] = [];
-  if (words.length < 160) issues.push(\`The result contains only \${words.length} words; add task-specific implementation detail.\`);
+  if (words.length < 160) issues.push(`The result contains only \${words.length} words; add task-specific implementation detail.`);
   if (words.length > 500) issues.push("The result is too long; remove repetition and unrelated detail.");
   const lines = text.split(/\n/).map(line => line.trim()).filter(Boolean);
   const headings = lines.filter(line => /^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line))
     .map(line => line.replace(/^#{1,6}\s*/, "").replace(/^\*\*|\*\*$/g, "").replace(/:$/, "").toLowerCase());
   const requiredHeadings = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
   const missingHeadings = requiredHeadings.filter(heading => !headings.some(actual => actual === heading));
-  if (missingHeadings.length) issues.push(\`Missing required sections: \${missingHeadings.join(", ")}.\`);
+  if (missingHeadings.length) issues.push(`Missing required sections: \${missingHeadings.join(", ")}.`);
   const repeated = headings.filter((heading, index) => headings.indexOf(heading) !== index);
   if (repeated.length) issues.push("One or more section headings are repeated.");
 
