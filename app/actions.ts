@@ -74,7 +74,7 @@ export async function createTask(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const priority = String(formData.get("priority") ?? "medium");
   const dueDate = String(formData.get("due_date") ?? "").trim();
-  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
+  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
   const departmentId = String(formData.get("department_id") ?? "") || null;
   const assignedAgentId = String(formData.get("assigned_agent_id") ?? "") || null;
   if (!title) return;
@@ -104,7 +104,7 @@ export async function updateTaskStatus(formData: FormData) {
   const id = String(formData.get("task_id") ?? "");
   const status = String(formData.get("status") ?? "queued");
   const dueDate = String(formData.get("due_date") ?? "").trim();
-  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
+  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
   const allowed = ["queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
   if (!id || !allowed.includes(status)) return;
   if (status === "completed") {
