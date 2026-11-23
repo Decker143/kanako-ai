@@ -46,6 +46,20 @@ export async function signUp(formData: FormData) {
   redirect("/?message=" + encodeURIComponent("Owner account and company workspace created successfully."));
 }
 
+export async function resendConfirmation(formData: FormData) {
+  const supabase = await createClient();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  if (!email || !email.includes("@")) redirect("/?error=" + encodeURIComponent("Enter the email address you used to register."));
+  if (!appUrl || !appUrl.startsWith("https://")) redirect("/?error=" + encodeURIComponent("Secure application URL is not configured."));
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: appUrl + "/auth/callback" },
+  });
+  if (error) redirect("/?error=" + encodeURIComponent(error.message));
+  redirect("/?message=" + encodeURIComponent("A new confirmation email has been requested. Use the newest email only."));
+}
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
