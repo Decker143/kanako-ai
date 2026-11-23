@@ -72,12 +72,40 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
           <capsuleGeometry args={[0.2, 0.38, 4, 8]} />
           <meshStandardMaterial color={agent.departmentColor} roughness={0.82} />
         </mesh>
+        <mesh position={[0, 0.69, -0.2]} castShadow>
+          <cylinderGeometry args={[0.09, 0.09, 0.18, 10]} />
+          <meshStandardMaterial color="#d6b69b" roughness={0.9} />
+        </mesh>
+        <mesh position={[-0.105, 0.31, -0.18]} castShadow>
+          <capsuleGeometry args={[0.075, 0.34, 4, 8]} />
+          <meshStandardMaterial color="#263247" roughness={0.9} />
+        </mesh>
+        <mesh position={[0.105, 0.31, -0.18]} castShadow>
+          <capsuleGeometry args={[0.075, 0.34, 4, 8]} />
+          <meshStandardMaterial color="#263247" roughness={0.9} />
+        </mesh>
+        <mesh position={[-0.105, 0.09, 0.0]} castShadow>
+          <boxGeometry args={[0.16, 0.09, 0.3]} />
+          <meshStandardMaterial color="#171f30" roughness={0.8} />
+        </mesh>
+        <mesh position={[0.105, 0.09, 0.0]} castShadow>
+          <boxGeometry args={[0.16, 0.09, 0.3]} />
+          <meshStandardMaterial color="#171f30" roughness={0.8} />
+        </mesh>
         <mesh position={[0, 1.38, -0.2]} castShadow>
           <sphereGeometry args={[0.23, 20, 16]} />
           <meshStandardMaterial color="#d6b69b" roughness={0.9} />
         </mesh>
         <mesh position={[0, 1.53, -0.23]}>
           <sphereGeometry args={[0.235, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.48]} />
+          <meshStandardMaterial color="#342b2d" roughness={1} />
+        </mesh>
+        <mesh position={[-0.205, 1.39, -0.17]} rotation={[0, 0, -0.18]}>
+          <sphereGeometry args={[0.075, 10, 10]} />
+          <meshStandardMaterial color="#342b2d" roughness={1} />
+        </mesh>
+        <mesh position={[0.205, 1.39, -0.17]} rotation={[0, 0, 0.18]}>
+          <sphereGeometry args={[0.075, 10, 10]} />
           <meshStandardMaterial color="#342b2d" roughness={1} />
         </mesh>
         <mesh position={[0.09, 1.39, 0.005]}>
@@ -139,21 +167,21 @@ function OfficeArchitecture() {
     </mesh>
     <mesh position={[-9.3, 2.2, 0]} receiveShadow><boxGeometry args={[0.25, 4.4, 13.5]} /><meshStandardMaterial color="#202b3d" /></mesh>
     <mesh position={[9.3, 2.2, 0]} receiveShadow><boxGeometry args={[0.25, 4.4, 13.5]} /><meshStandardMaterial color="#202b3d" /></mesh>
-    <mesh position={[0, 3.8, -6.62]}><boxGeometry args={[5.2, 1.25, 0.08]} /><meshStandardMaterial color="#344968" emissive="#385b88" emissiveIntensity={0.24} /></mesh>
-    <mesh position={[0, 3.8, -6.55]}><boxGeometry args={[4.7, 0.75, 0.04]} /><meshStandardMaterial color="#182d48" /></mesh>
-    <Html position={[0, 3.8, -6.45]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
+    <mesh position={[0, 5.25, -6.62]}><boxGeometry args={[5.2, 1.25, 0.08]} /><meshStandardMaterial color="#344968" emissive="#385b88" emissiveIntensity={0.24} /></mesh>
+    <mesh position={[0, 5.25, -6.55]}><boxGeometry args={[4.7, 0.75, 0.04]} /><meshStandardMaterial color="#182d48" /></mesh>
+    <Html position={[0, 5.25, -6.45]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
       <div className="office-3d-wall-sign">KANAKO <b>AI</b><small>ONE COMPANY · MANY MINDS</small></div>
     </Html>
     <mesh position={[0, 0.12, -5.5]} castShadow><boxGeometry args={[4.6, 0.24, 1.3]} /><meshStandardMaterial color="#4a3e38" /></mesh>
     <mesh position={[0, 0.72, -5.5]} castShadow><boxGeometry args={[3.6, 1.05, 0.08]} /><meshStandardMaterial color="#5d6680" transparent opacity={0.65} /></mesh>
     <Html position={[0, 1.35, -5.45]} center distanceFactor={12}><div className="office-3d-room-label">CEO OFFICE</div></Html>
-    <mesh position={[0, 0.45, 3.8]} castShadow><cylinderGeometry args={[1.25, 1.25, 0.18, 48]} /><meshStandardMaterial color="#5a4a40" /></mesh>
-    <mesh position={[0, 0.57, 3.8]} castShadow><cylinderGeometry args={[1.05, 1.05, 0.08, 48]} /><meshStandardMaterial color="#a18b72" /></mesh>
-    {chairs.map((angle) => <group key={angle} position={[Math.cos(angle) * 1.65, 0, 3.8 + Math.sin(angle) * 1.65]} rotation={[0, -angle, 0]}>
+    <mesh position={[0, 0.45, 5.25]} castShadow><cylinderGeometry args={[1.25, 1.25, 0.18, 48]} /><meshStandardMaterial color="#5a4a40" /></mesh>
+    <mesh position={[0, 0.57, 5.25]} castShadow><cylinderGeometry args={[1.05, 1.05, 0.08, 48]} /><meshStandardMaterial color="#a18b72" /></mesh>
+    {chairs.map((angle) => <group key={angle} position={[Math.cos(angle) * 1.65, 0, 5.25 + Math.sin(angle) * 1.65]} rotation={[0, -angle, 0]}>
       <mesh position={[0, 0.42, 0]} castShadow><boxGeometry args={[0.55, 0.12, 0.55]} /><meshStandardMaterial color="#52627c" /></mesh>
       <mesh position={[0, 0.75, -0.2]} castShadow><boxGeometry args={[0.55, 0.7, 0.12]} /><meshStandardMaterial color="#39465d" /></mesh>
     </group>)}
-    <Html position={[0, 1.4, 3.8]} center distanceFactor={12}><div className="office-3d-room-label">COLLABORATION HUB</div></Html>
+    <Html position={[0, 1.4, 5.25]} center distanceFactor={12}><div className="office-3d-room-label">COLLABORATION HUB</div></Html>
     <Plant position={[-8, 0, -5]} /><Plant position={[8, 0, -5]} /><Plant position={[-8, 0, 5]} /><Plant position={[8, 0, 5]} />
     <mesh position={[-5.8, 1.55, -5.1]}><boxGeometry args={[1.4, 2.9, 0.1]} /><meshStandardMaterial color="#43546d" transparent opacity={0.45} /></mesh>
     <mesh position={[5.8, 1.55, -5.1]}><boxGeometry args={[1.4, 2.9, 0.1]} /><meshStandardMaterial color="#43546d" transparent opacity={0.45} /></mesh>
@@ -174,7 +202,7 @@ function SceneContents({ agents, selected, onSelect }: {
     const columns = 5;
     const row = Math.floor(index / columns);
     const col = index % columns;
-    return [-6.8 + col * 3.4, 0, -2.5 + row * 3.2];
+    return [-6.4 + col * 3.2, 0, -3.0 + row * 2.75];
   }), [agents]);
   return <>
     <OfficeArchitecture />
