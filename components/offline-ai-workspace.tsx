@@ -25,7 +25,27 @@ type OfflineSnapshot = {
   previousRuns: OfflinePreviousRun[];
   knowledgeDocuments: { title: string; content: string }[];
 };
-type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string };
+type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string; quality?: { status: "ready_for_review" | "needs_revision"; wordCount: number; issues: string[] } };
+
+function reviewLocalOutput(output: string, taskTitle: string) {
+  const text = output.trim();
+  const words = text.split(/\\s+/).filter(Boolean);
+  const issues: string[] = [];
+  if (words.length < 100) issues.push("The result is very short and may not contain enough detail for this task.");
+  if (words.length > 700) issues.push("The result is overly long; review it for repetition and unnecessary detail.");
+  const headings = text.split(/\\n/).map(line => line.trim().replace(/^#+\\s*/, "").replace(/:$/, "").toLowerCase()).filter(Boolean);
+  const repeated = headings.filter((heading, index) => headings.indexOf(heading) !== index);
+  if (repeated.length) issues.push("One or more section headings are repeated.");
+  const lower = text.toLowerCase();
+  if (!lower.includes(taskTitle.toLowerCase().slice(0, Math.min(18, taskTitle.length)))) {
+    issues.push("The output does not clearly reference the assigned task title.");
+  }
+  if (/\\b(i have (built|implemented|deployed|updated)|successfully (built|implemented|deployed))\\b/i.test(text)) {
+    issues.push("The output may claim implementation work that a text-only local run cannot perform.");
+  }
+  const status = issues.length ? "needs_revision" as const : "ready_for_review" as const;
+  return { status, wordCount: words.length, issues };
+}
 type StoreName = "messages" | "tasks" | "snapshots" | "runs";
 type LocalEngine = {
   chat: {
@@ -269,9 +289,12 @@ export function OfflineAIWorkspace() {
           return { previous_task: input.task_title, approved_example: typeof output.text === "string" ? output.text.slice(0, 900) : "" };
         })),
 
-        "Use the approved memories and feedback to improve your approach. Do not copy old facts blindly. State limitations, assumptions, deliverables, and next steps.",
-        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. If the task requests software development or system changes, provide a concrete implementation specification and clearly state that the actual code changes remain undone.",
-        "Organize the deliverable using these headings: Task understanding; Execution plan; Deliverable; Acceptance checks; Assumptions and blockers; Recommended next step. Be specific, avoid repetition, and do not claim unfinished work is complete.",
+        "Use the approved memories and feedback only when relevant. Treat the assigned task description and the supplied workspace snapshot as the source of truth. Separate verified facts from proposals and assumptions.",
+        "Produce a concise, task-specific work product, not a generic essay or a list of capabilities. Do not repeat the same idea in multiple sections. Do not add generic sections about security, scalability, integrations, deployment, or maintenance unless the task explicitly requires them.",
+        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. For software tasks, provide concrete files/components, data structures, logic, and acceptance checks only when supported by the available context; clearly label all proposed changes as NOT IMPLEMENTED.",
+        "Use exactly these six headings once each: Task summary; Proposed work product; Implementation details; Acceptance checklist; Risks and missing information; Owner review required.",
+        "Under Proposed work product, provide the actual useful artifact requested by the task (for example a schema, workflow, specification, report, or draft), not a description of what such an artifact could do. Under Implementation details, give ordered actionable steps. In Acceptance checklist, write testable pass/fail checks. In Risks and missing information, list only real gaps; write None identified if none. Under Owner review required, state the decisions or approvals needed.",
+        "Keep the complete response under 500 words. Prefer concrete details over filler. Do not invent existing tables, APIs, files, approvals, people, or completed work. Do not claim any external change has been made.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
       setRunStatus("Kanako is preparing the task instructions and local context…");
@@ -290,6 +313,7 @@ export function OfflineAIWorkspace() {
         setRunStatus("Kanako is working locally… " + output.length + " characters generated.");
       }
       if (!output.trim()) throw new Error("The local model returned an empty result. Please try again.");
+      const quality = reviewLocalOutput(output, task.title);
       const localRun: LocalRun = {
         id: crypto.randomUUID(),
         agentId: agent.id,
@@ -297,6 +321,7 @@ export function OfflineAIWorkspace() {
         output,
         model: MODEL_ID,
         createdAt: new Date().toISOString(),
+        quality,
       };
       await saveRecord("runs", localRun);
       setRuns(current => [localRun, ...current]);
@@ -417,7 +442,7 @@ export function OfflineAIWorkspace() {
         </div>
         {runOutput&&<details className="run-output" open><summary>Current local result</summary><pre>{runOutput}</pre></details>}
         <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || !organizationId || !runs.some(run=>!run.syncedAt)}>Sync results</button></div>
-        <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span></div><p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
+        <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span><span className="pill">{run.quality?.status === "ready_for_review" ? "Quality checks passed" : run.quality ? "Needs revision" : "Not reviewed"}</span></div>{run.quality?.issues.length ? <ul className="muted" style={{fontSize:11,margin:"6px 0",paddingLeft:18}}>{run.quality.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : null}<p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
         <button className="btn secondary" style={{marginTop:10}} onClick={()=>void refreshSnapshot(organizationId)} disabled={!online || !organizationId || refreshingSnapshot || busy}>{refreshingSnapshot ? "Refreshing snapshot…" : snapshot ? "Refresh offline snapshot" : "Prepare offline snapshot"}</button>
       </div>
     </div>
