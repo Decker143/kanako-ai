@@ -195,8 +195,19 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       setMessage("Free local AI meeting preparation brief generated. It used the meeting title, agenda, and invitee list only; it did not access the live task list or record a real discussion. Review and save it yourself.");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.";
-      setLocalModelMessage(errorMessage);
-      setMessage(errorMessage);
+      const gpuDeviceLost = /mapAsync|GPUBuffer|external Instance|device lost|WebGPU/i.test(errorMessage);
+      if (gpuDeviceLost) {
+        // A lost WebGPU device leaves the current WebLLM engine unusable.
+        // Require a page reload so the browser can create a fresh GPU context.
+        localEngineRef.current = null;
+        setLocalModelReady(false);
+        setLocalModelProgress(0);
+        setLocalModelMessage("The browser's GPU session was lost. Refresh this page, then prepare the free local AI model again. The model should remain cached, so it may not need a full download.");
+        setMessage("Local AI stopped because the browser lost its GPU session. Your existing meeting record was not changed. Refresh this page, then prepare free local AI again.");
+      } else {
+        setLocalModelMessage(errorMessage);
+        setMessage(errorMessage);
+      }
     } finally {
       window.clearInterval(progressTimer);
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
