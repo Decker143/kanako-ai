@@ -28,6 +28,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Only the workspace owner or admin can move AI employees." }, { status: 403 });
   }
 
+  const { data: validAgents, error: agentsError } = await supabase.from("ai_agents")
+    .select("id").eq("organization_id", organizationId).in("id", agentIds);
+  if (agentsError || (validAgents?.length ?? 0) !== agentIds.length) {
+    return NextResponse.json({ error: "One or more selected employees do not belong to this workspace." }, { status: 400 });
+  }
+
+  const { error: closeError } = await supabase.from("office_commands")
+    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .eq("organization_id", organizationId).in("agent_id", agentIds)
+    .in("status", ["pending", "in_progress"]);
+  if (closeError) return NextResponse.json({ error: "The previous movement command could not be closed." }, { status: 500 });
+
   const validCommand = command === "call_to_meeting" ? "call_to_meeting" : "return_to_workstation";
   const destination = validCommand === "call_to_meeting" ? "collaboration_hub" : "workstation";
   const rows = agentIds.map(agent_id => ({
