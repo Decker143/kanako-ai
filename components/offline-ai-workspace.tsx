@@ -95,20 +95,37 @@ export function OfflineAIWorkspace() {
   const [runOutput, setRunOutput] = useState("");
   const [busy, setBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [refreshingSnapshot, setRefreshingSnapshot] = useState(false);
 
   async function refreshSnapshot(orgId: string) {
-    if (!orgId || !navigator.onLine) return;
+    if (!orgId) {
+      setSyncMessage("The cloud workspace ID is not available on this device yet. Open the signed-in owner workspace, wait for it to finish loading, then return here and try again.");
+      return;
+    }
+    if (!navigator.onLine) {
+      setSyncMessage("You are offline. Connect to the internet before refreshing the cloud snapshot.");
+      return;
+    }
+    if (refreshingSnapshot || busy) return;
+    setRefreshingSnapshot(true);
+    setSyncMessage("Connecting to your cloud workspace and preparing the offline snapshot…");
     try {
-      const response = await fetch("/api/offline/snapshot?organizationId=" + encodeURIComponent(orgId));
-      if (!response.ok) return;
-      const data = await response.json() as Omit<OfflineSnapshot, "id">;
-      const next: OfflineSnapshot = { ...data, id: "active" };
+      const response = await fetch("/api/offline/snapshot?organizationId=" + encodeURIComponent(orgId), { cache: "no-store" });
+      const data = await response.json().catch(() => ({})) as Partial<Omit<OfflineSnapshot, "id">> & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Snapshot request failed (HTTP " + response.status + ").");
+      if (!Array.isArray(data.agents) || !Array.isArray(data.tasks)) {
+        throw new Error("The cloud response was incomplete. No new snapshot was saved.");
+      }
+      const next: OfflineSnapshot = { ...data as Omit<OfflineSnapshot, "id">, id: "active" };
       await saveRecord("snapshots", next);
       setSnapshot(next);
       setSelectedAgentId(current => current || next.agents[0]?.id || "");
       setSelectedTaskId(current => current || next.tasks[0]?.id || "");
-    } catch {
-      setSyncMessage("Could not refresh the offline employee and task snapshot. The last saved snapshot remains available.");
+      setSyncMessage("Offline snapshot refreshed successfully: " + next.agents.length + " eligible AI employee(s), " + next.tasks.length + " queued or blocked task(s).");
+    } catch (error) {
+      setSyncMessage(error instanceof Error ? error.message : "Could not refresh the offline employee and task snapshot. The last saved snapshot remains available.");
+    } finally {
+      setRefreshingSnapshot(false);
     }
   }
 
@@ -390,7 +407,7 @@ export function OfflineAIWorkspace() {
         {runOutput&&<details className="run-output" open><summary>Current local result</summary><pre>{runOutput}</pre></details>}
         <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || !organizationId || !runs.some(run=>!run.syncedAt)}>Sync results</button></div>
         <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span></div><p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
-        <button className="btn secondary" style={{marginTop:10}} onClick={()=>void refreshSnapshot(organizationId)} disabled={!online || !organizationId}>{snapshot ? "Refresh offline snapshot" : "Prepare offline snapshot"}</button>
+        <button className="btn secondary" style={{marginTop:10}} onClick={()=>void refreshSnapshot(organizationId)} disabled={!online || !organizationId || refreshingSnapshot || busy}>{refreshingSnapshot ? "Refreshing snapshot…" : snapshot ? "Refresh offline snapshot" : "Prepare offline snapshot"}</button>
       </div>
     </div>
 
