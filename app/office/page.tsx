@@ -14,13 +14,14 @@ export default async function OfficePage() {
   if (!membership) redirect("/");
 
   const orgId = membership.organization_id;
-  const [{ data: organization }, { data: agents }, { data: departments }, { data: tasks }, { data: runs }, { data: officeCommands }] = await Promise.all([
+  const [{ data: organization }, { data: agents }, { data: departments }, { data: tasks }, { data: runs }, { data: officeCommands }, { data: meetings }] = await Promise.all([
     supabase.from("organizations").select("name").eq("id", orgId).single(),
     supabase.from("ai_agents").select("id,name,job_title,description,status,availability_status,department_id,capabilities,skills").eq("organization_id", orgId).order("created_at", { ascending: true }),
     supabase.from("departments").select("id,name,color").eq("organization_id", orgId).order("name"),
     supabase.from("tasks").select("id,title,status,priority,assigned_agent_id,department_id,updated_at").eq("organization_id", orgId).order("updated_at", { ascending: false }).limit(150),
     supabase.from("agent_runs").select("id,agent_id,task_id,status,created_at,started_at,finished_at").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(100),
     supabase.from("office_commands").select("id,agent_id,command,destination,status,created_at").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(200),
+    supabase.from("office_meetings").select("id,title,agenda,status,scheduled_for,notes,decisions,action_items,created_at,office_meeting_attendees(agent_id,attendance_status)").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(50),
   ]);
 
   return <VirtualOffice
