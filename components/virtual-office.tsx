@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
+
+const Office3DScene = dynamic(() => import("./office-3d-scene").then((module) => module.Office3DScene), {
+  ssr: false,
+  loading: () => <div className="office-3d-loading">Preparing the 3D virtual office…</div>,
+});
 
 type Agent = { id:string; name:string; jobTitle:string; description:string; status:string; availability:string; departmentId:string|null; skills:string[] };
 type Department = { id:string; name:string; color:string };
 type Task = { id:string; title:string; status:string; priority:string; agentId:string|null; departmentId:string|null; updatedAt:string };
 type Run = { id:string; agentId:string; taskId:string|null; status:string; createdAt:string; startedAt:string|null; finishedAt:string|null };
 
-const desks = [
-  { x: 13, y: 24 }, { x: 35, y: 19 }, { x: 57, y: 24 }, { x: 79, y: 19 },
-  { x: 18, y: 64 }, { x: 41, y: 68 }, { x: 64, y: 64 }, { x: 84, y: 68 },
-  { x: 50, y: 43 },
-];
 function initials(name:string) { return name.split(/\s+/).slice(0,2).map(part=>part[0]??"").join("").toUpperCase(); }
 function label(value:string) { return value.replaceAll("_"," ").replace(/\b\w/g, c=>c.toUpperCase()); }
 
@@ -59,30 +60,21 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
     </section>
 
     <section className="office-scene-wrap">
-      <div className="office-scene-top"><span><i className="scene-dot"/> LIVE WORKSPACE DATA</span><span>SELECT A WORKSTATION TO INSPECT AN EMPLOYEE</span></div>
-      <div className="office-scene">
-        <div className="scene-back-wall"><div className="scene-window"><span>BUILD · LEARN · EVOLVE</span></div><div className="scene-sign">KANAKO <b>AI</b><small>ONE COMPANY · MANY MINDS</small></div><div className="scene-window second"><span>MISSION CONTROL</span></div></div>
-        <div className="scene-floor"><div className="floor-grid"/></div>
-        <div className="scene-plant plant-a">✦</div><div className="scene-plant plant-b">✦</div>
-        <div className="scene-meeting"><span>COLLABORATION HUB</span><div className="meeting-table"/><i/><i/><i/></div>
-        <div className="scene-ceo"><span>CEO OFFICE</span><div className="ceo-desk"/><b>K</b></div>
-        {filteredAgents.map(agent=>{
-          const originalIndex=agents.findIndex(item=>item.id===agent.id);
-          const position=desks[originalIndex%desks.length];
-          const isSelected=selected===agent.id;
-          const isWorking=activeRuns.some(run=>run.agentId===agent.id);
-          const assigned=openTasks.filter(task=>task.agentId===agent.id).length;
-          const department=departmentById.get(agent.departmentId ?? "");
-          return <button key={agent.id} className={`office-desk ${isSelected?"selected":""} ${isWorking?"working":""}`} style={{left:position.x+"%",top:position.y+"%", "--desk-accent":department?.color ?? "#8b7cff"} as React.CSSProperties} onClick={()=>setSelected(agent.id)} aria-label={`Inspect ${agent.name}`}>
-            <span className="desk-top"><i/><i/><i/></span><span className="desk-screen"><b>{isWorking?"RUN":"AI"}</b></span>
-            <span className="desk-avatar">{initials(agent.name)}</span><span className="desk-name">{agent.name}</span><span className="desk-role">{agent.jobTitle}</span>
-            <span className={`desk-state ${isWorking?"is-working":agent.status==="active"?"is-ready":"is-idle"}`}>{isWorking?"WORKING":agent.status==="active"?"AVAILABLE":"INACTIVE"}</span>
-            {assigned>0&&<span className="desk-task-count">{assigned} TASK{assigned===1?"":"S"}</span>}
-          </button>;
-        })}
-        {!filteredAgents.length&&<div className="office-empty">No employees in this department yet.</div>}
-      </div>
-      <div className="office-scene-legend"><span><i className="legend-working"/> Running task</span><span><i className="legend-ready"/> Active profile</span><span><i className="legend-idle"/> Inactive profile</span><span className="muted">Workstation indicators reflect saved records, not simulated activity.</span></div>
+      <div className="office-scene-top"><span><i className="scene-dot"/> INTERACTIVE 3D WORKSPACE</span><span>SELECT AN EMPLOYEE TO INSPECT THEIR WORK</span></div>
+      <Office3DScene
+        agents={filteredAgents.map(agent => ({
+          id: agent.id,
+          name: agent.name,
+          jobTitle: agent.jobTitle,
+          status: agent.status,
+          departmentColor: departmentById.get(agent.departmentId ?? "")?.color ?? "#8b7cff",
+          working: activeRuns.some(run => run.agentId === agent.id),
+          taskCount: openTasks.filter(task => task.agentId === agent.id).length,
+        }))}
+        selected={selected}
+        onSelect={setSelected}
+      />
+      <div className="office-scene-legend"><span><i className="legend-working"/> Running task</span><span><i className="legend-ready"/> Active profile</span><span><i className="legend-idle"/> Inactive profile</span><span className="muted">Employee activity is based on saved agent execution records.</span></div>
     </section>
 
     <section className="office-lower">
