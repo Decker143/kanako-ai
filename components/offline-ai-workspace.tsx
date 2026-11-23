@@ -27,7 +27,7 @@ type OfflineSnapshot = {
 };
 type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string; quality?: { status: "ready_for_review" | "needs_revision"; wordCount: number; issues: string[] } };
 
-function reviewLocalOutput(output: string, taskTitle: string) {
+function reviewLocalOutput(output: string, taskTitle: string, allowedDepartments: string[] = []) {
   const text = output.trim();
   const words = text.split(/\s+/).filter(Boolean);
   const issues: string[] = [];
@@ -41,6 +41,10 @@ function reviewLocalOutput(output: string, taskTitle: string) {
   const requiredHeadings = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
   const missingHeadings = requiredHeadings.filter(heading => !headings.some(actual => actual.includes(heading)));
   if (missingHeadings.length) issues.push(`Missing required sections: ${missingHeadings.join(", ")}.`);
+  const departmentMentions = [...text.matchAll(/Department\s+\d+\s*:\s*([^\n*]+)/gi)].map(match => match[1].trim());
+  const allowed = new Set(allowedDepartments.map(name => name.toLowerCase().trim()));
+  const inventedDepartments = departmentMentions.filter(name => !allowed.has(name.toLowerCase()));
+  if (inventedDepartments.length) issues.push("The result names departments that are not in the approved workspace roster: " + inventedDepartments.join(", ") + ".");
   const meaningfulTerms = taskTitle.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 3);
   const lower = text.toLowerCase();
   const matchedTerms = meaningfulTerms.filter(term => lower.includes(term));
@@ -298,12 +302,13 @@ export function OfflineAIWorkspace() {
           return { previous_task: input.task_title, approved_example: typeof output.text === "string" ? output.text.slice(0, 900) : "" };
         })),
 
-        "Use the approved memories and feedback only when relevant. Treat the assigned task description and the supplied workspace snapshot as the source of truth. Separate verified facts from proposals and assumptions.",
-        "Produce a concise, task-specific work product, not a generic essay or a list of capabilities. Do not repeat the same idea in multiple sections. Do not add generic sections about security, scalability, integrations, deployment, or maintenance unless the task explicitly requires them.",
-        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. For software tasks, provide concrete files/components, data structures, logic, and acceptance checks only when supported by the available context; clearly label all proposed changes as NOT IMPLEMENTED.",
-        "Use exactly these six headings once each: Task summary; Proposed work product; Implementation details; Acceptance checklist; Risks and missing information; Owner review required.",
-        "Under Proposed work product, provide the actual useful artifact requested by the task (for example a schema, workflow, specification, report, or draft), not a description of what such an artifact could do. Under Implementation details, give ordered actionable steps. In Acceptance checklist, write testable pass/fail checks. In Risks and missing information, list only real gaps; write None identified if none. Under Owner review required, state the decisions or approvals needed.",
-        "Keep the complete response under 500 words. Prefer concrete details over filler. Do not invent existing tables, APIs, files, approvals, people, or completed work. Do not claim any external change has been made.",
+        "The approved department roster for this organization is exactly: " + (snapshot?.departments ?? []).map(item => item.name).join("; ") + ". Use these exact names only. Never invent, rename, replace, or add departments. If the roster is empty, say the department roster is unavailable; do not guess.",
+        "Use the approved memories and feedback only when relevant. Treat the assigned task description, approved department roster, and supplied workspace snapshot as the only sources of truth. Separate verified facts from proposals and assumptions.",
+        "This is a software-planning task. Produce a concise implementation specification for the actual KANAKO AI workspace, not a generic essay, imaginary product, or list of capabilities. Do not invent sample departmental tasks, employees, database tables, APIs, files, existing features, or completed work. If a technical detail is not present in the snapshot, label it as a proposed design, not an existing fact.",
+        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. Clearly state that the specification is NOT IMPLEMENTED.",
+        "Output exactly these six Markdown headings, each on its own line, in this exact order, with no other headings: ## Task summary; ## Proposed work product; ## Implementation details; ## Acceptance checklist; ## Risks and missing information; ## Owner review required.",
+        "Under Proposed work product, give a compact task-register specification tied to the owner's stated requirements. Under Implementation details, list only the next concrete engineering steps. In Acceptance checklist, give testable pass/fail checks. In Risks and missing information, list only genuine unknowns. Under Owner review required, state only decisions the owner must make.",
+        "Keep the entire answer between 180 and 350 words. Do not repeat content. Do not add generic security, encryption, backup, API integration, deployment, or maintenance sections unless directly required by the task.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
       setRunStatus("Kanako is preparing the task instructions and local context…");
@@ -322,7 +327,7 @@ export function OfflineAIWorkspace() {
         setRunStatus("Kanako is working locally… " + output.length + " characters generated.");
       }
       if (!output.trim()) throw new Error("The local model returned an empty result. Please try again.");
-      const quality = reviewLocalOutput(output, task.title);
+      const quality = reviewLocalOutput(output, task.title, (snapshot?.departments ?? []).map(item => item.name));
       const localRun: LocalRun = {
         id: crypto.randomUUID(),
         agentId: agent.id,
