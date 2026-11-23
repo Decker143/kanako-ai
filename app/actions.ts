@@ -319,19 +319,20 @@ export async function updateAgentProfile(formData: FormData) {
     redirect("/?view=agents&error=" + encodeURIComponent("Only workspace owners and admins can edit AI employee profiles."));
   }
   const id = String(formData.get("agent_id") ?? "");
+  const instructions = String(formData.get("instructions") ?? "").trim().slice(0, 12000);
   const skills = [...new Set(String(formData.get("skills") ?? "").split(",").map(value => value.trim().toLowerCase()).filter(value => value.length > 0 && value.length <= 50))].slice(0, 20);
   const maxConcurrentTasks = Math.min(20, Math.max(1, Number.parseInt(String(formData.get("max_concurrent_tasks") ?? "2"), 10) || 2));
   const availabilityStatus = String(formData.get("availability_status") ?? "available");
   if (!id || !["available", "busy", "unavailable"].includes(availabilityStatus)) return;
-  const { data: agent } = await supabase.from("ai_agents").select("id").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+  const { data: agent } = await supabase.from("ai_agents").select("id,name").eq("id", id).eq("organization_id", organizationId).maybeSingle();
   if (!agent) redirect("/?view=agents&error=" + encodeURIComponent("AI employee not found in this workspace."));
   const { error } = await supabase.from("ai_agents").update({
-    skills, max_concurrent_tasks: maxConcurrentTasks, availability_status: availabilityStatus,
+    instructions: instructions || null, skills, max_concurrent_tasks: maxConcurrentTasks, availability_status: availabilityStatus,
   }).eq("id", id).eq("organization_id", organizationId);
   if (error) redirect("/?view=agents&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "agent.profile_updated", "ai_agent", id);
   revalidatePath("/");
-  redirect("/?view=agents&success=" + encodeURIComponent("Employee profile saved successfully. Kanako's profile details are now up to date."));
+  redirect("/?view=agents&success=" + encodeURIComponent(agent.name + " profile and role instructions saved successfully."));
 }
 
 export async function updateAgentCapabilities(formData: FormData) {
