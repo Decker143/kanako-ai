@@ -24,7 +24,8 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   useFrame(({ clock }, delta) => {
     if (character.current) {
       const moving = agent.destination === "collaboration_hub";
-      const angle = ((agent.meetingSlot ?? 0) % 6) * (Math.PI / 3);\n      const target = moving ? new THREE.Vector3(Math.cos(angle) * 2.35 - position[0], 0, 8.4 + Math.sin(angle) * 2.35 - position[2]) : new THREE.Vector3(0, 0, -0.92);
+      const angle = ((agent.meetingSlot ?? 0) % 6) * (Math.PI / 3);
+      const target = moving ? new THREE.Vector3(Math.cos(angle) * 2.35 - position[0], 0, 8.4 + Math.sin(angle) * 2.35 - position[2]) : new THREE.Vector3(0, 0, -0.92);
       character.current.position.lerp(target, 1 - Math.exp(-delta * 1.7));
       character.current.position.y = (agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0) + (moving ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.035 : 0);
       character.current.rotation.y = moving ? Math.atan2(-Math.cos(angle), -Math.sin(angle)) : 0;
