@@ -20,7 +20,7 @@ export default async function OfficePage() {
     supabase.from("departments").select("id,name,color").eq("organization_id", orgId).order("name"),
     supabase.from("tasks").select("id,title,status,priority,assigned_agent_id,department_id,updated_at").eq("organization_id", orgId).order("updated_at", { ascending: false }).limit(150),
     supabase.from("agent_runs").select("id,agent_id,task_id,status,created_at,started_at,finished_at").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(100),
-    supabase.from("office_commands").select("id,agent_id,command,destination,status,created_at").eq("organization_id", orgId).in("status", ["pending","in_progress"]).order("created_at", { ascending: false }),
+    supabase.from("office_commands").select("id,agent_id,command,destination,status,created_at").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(200),
   ]);
 
   return <VirtualOffice
