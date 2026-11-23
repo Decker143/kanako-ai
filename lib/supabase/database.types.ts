@@ -24,6 +24,25 @@ export type Database = {
         ]
       }
 
+      office_meetings: {
+        Row: { id: string; organization_id: string; title: string; agenda: string; status: string; scheduled_for: string | null; started_at: string | null; ended_at: string | null; notes: string; decisions: string; action_items: Json; created_by: string; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; title: string; agenda?: string; status?: string; scheduled_for?: string | null; started_at?: string | null; ended_at?: string | null; notes?: string; decisions?: string; action_items?: Json; created_by: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; organization_id?: string; title?: string; agenda?: string; status?: string; scheduled_for?: string | null; started_at?: string | null; ended_at?: string | null; notes?: string; decisions?: string; action_items?: Json; created_by?: string; created_at?: string; updated_at?: string }
+        Relationships: [
+          { foreignKeyName: "office_meetings_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ]
+      }
+      office_meeting_attendees: {
+        Row: { id: string; organization_id: string; meeting_id: string; agent_id: string; attendance_status: string; created_at: string }
+        Insert: { id?: string; organization_id: string; meeting_id: string; agent_id: string; attendance_status?: string; created_at?: string }
+        Update: { id?: string; organization_id?: string; meeting_id?: string; agent_id?: string; attendance_status?: string; created_at?: string }
+        Relationships: [
+          { foreignKeyName: "office_meeting_attendees_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "office_meeting_attendees_meeting_id_fkey"; columns: ["meeting_id"]; isOneToOne: false; referencedRelation: "office_meetings"; referencedColumns: ["id"] },
+          { foreignKeyName: "office_meeting_attendees_agent_id_fkey"; columns: ["agent_id"]; isOneToOne: false; referencedRelation: "ai_agents"; referencedColumns: ["id"] }
+        ]
+      }
+
       activity_logs: {
         Row: {
           action: string
