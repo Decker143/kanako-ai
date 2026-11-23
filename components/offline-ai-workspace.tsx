@@ -31,35 +31,77 @@ function reviewLocalOutput(output: string, taskTitle: string, allowedDepartments
   const text = output.trim();
   const words = text.split(/\s+/).filter(Boolean);
   const issues: string[] = [];
-  if (words.length < 100) issues.push(`The result contains only ${words.length} words and may need more task-specific detail.`);
-  if (words.length > 700) issues.push("The result is overly long; review it for repetition and unnecessary detail.");
+  if (words.length < 160) issues.push(\`The result contains only \${words.length} words; add task-specific implementation detail.\`);
+  if (words.length > 500) issues.push("The result is too long; remove repetition and unrelated detail.");
   const lines = text.split(/\n/).map(line => line.trim()).filter(Boolean);
   const headings = lines.filter(line => /^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line))
     .map(line => line.replace(/^#{1,6}\s*/, "").replace(/^\*\*|\*\*$/g, "").replace(/:$/, "").toLowerCase());
+  const requiredHeadings = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
+  const missingHeadings = requiredHeadings.filter(heading => !headings.some(actual => actual === heading));
+  if (missingHeadings.length) issues.push(\`Missing required sections: \${missingHeadings.join(", ")}.\`);
   const repeated = headings.filter((heading, index) => headings.indexOf(heading) !== index);
   if (repeated.length) issues.push("One or more section headings are repeated.");
-  const requiredHeadings = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
-  const missingHeadings = requiredHeadings.filter(heading => !headings.some(actual => actual.includes(heading)));
-  if (missingHeadings.length) issues.push(`Missing required sections: ${missingHeadings.join(", ")}.`);
+
+  const sections = new Map<string, string>();
+  for (let i = 0; i < lines.length; i++) {
+    const heading = lines[i].replace(/^#{1,6}\s*/, "").replace(/^\*\*|\*\*$/g, "").replace(/:$/, "").toLowerCase();
+    if (requiredHeadings.includes(heading)) {
+      let body = "";
+      for (let j = i + 1; j < lines.length && !/^#{1,6}\s|^\*\*[^*]+\*\*$/.test(lines[j]); j++) body += lines[j] + "\n";
+      sections.set(heading, body);
+    }
+  }
+
   const departmentMentions = [...text.matchAll(/Department\s+\d+\s*:\s*([^\n*]+)/gi)].map(match => match[1].trim());
   const allowed = new Set(allowedDepartments.map(name => name.toLowerCase().trim()));
   const inventedDepartments = departmentMentions.filter(name => !allowed.has(name.toLowerCase()));
-  if (inventedDepartments.length) issues.push("The result names departments that are not in the approved workspace roster: " + inventedDepartments.join(", ") + ".");
+  if (inventedDepartments.length) issues.push("The result names departments outside the approved workspace roster: " + inventedDepartments.join(", ") + ".");
+
   const meaningfulTerms = taskTitle.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 3);
   const lower = text.toLowerCase();
-  const matchedTerms = meaningfulTerms.filter(term => lower.includes(term));
-  if (!meaningfulTerms.length || matchedTerms.length < Math.min(2, meaningfulTerms.length)) {
+  if (!meaningfulTerms.length || meaningfulTerms.filter(term => lower.includes(term)).length < Math.min(2, meaningfulTerms.length)) {
     issues.push("The output does not clearly reference the assigned task.");
   }
+
   const bodyLines = lines.filter(line => !/^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line));
   const normalized = bodyLines.map(line => line.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()).filter(line => line.length > 35);
   if (normalized.some((line, index) => normalized.indexOf(line) !== index)) issues.push("One or more content lines are repeated.");
+
+  const isTaskRegister = /centralized\s+task\s+register|task\s+management\s+system/i.test(taskTitle);
+  if (isTaskRegister) {
+    const implementation = sections.get("implementation details") ?? "";
+    const acceptance = sections.get("acceptance checklist") ?? "";
+    const architectureAnchors = [
+      ["Next.js Task Center page", "app/page.tsx"],
+      ["server-side task actions", "app/actions.ts"],
+      ["existing tasks table", "tasks"],
+      ["task update history", "task_updates"],
+      ["audit trail", "activity_logs"],
+      ["organization ownership field", "organization_id"],
+      ["due-date field", "due_at"],
+      ["department assignment field", "department_id"],
+      ["employee assignment field", "assigned_agent_id"],
+    ] as const;
+    const missingAnchors = architectureAnchors.filter(([, token]) => !lower.includes(token));
+    if (missingAnchors.length) issues.push("The technical specification is missing verified architecture details: " + missingAnchors.map(([label]) => label).join(", ") + ".");
+    if (!/queued/.test(lower) || !/in_progress/.test(lower) || !/blocked/.test(lower) || !/in_review/.test(lower) || !/completed/.test(lower) || !/cancelled/.test(lower)) {
+      issues.push("The specification must include all existing task statuses: queued, in_progress, blocked, in_review, completed, and cancelled.");
+    }
+    if (!/app\/page\.tsx/.test(implementation) || !/app\/actions\.tsx?/.test(implementation)) {
+      issues.push("Implementation details must explain the specific changes needed in app/page.tsx and app/actions.ts.");
+    }
+    if (!/verify|test|confirm|ensure|must/i.test(acceptance)) {
+      issues.push("Acceptance checklist needs observable pass/fail tests, not only general goals.");
+    }
+  }
+
   if (/\b(i have (built|implemented|deployed|updated)|successfully (built|implemented|deployed))\b/i.test(text)) {
     issues.push("The output may claim implementation work that a text-only local run cannot perform.");
   }
   const status = issues.length ? "needs_revision" as const : "ready_for_review" as const;
   return { status, wordCount: words.length, issues };
-}type StoreName = "messages" | "tasks" | "snapshots" | "runs";
+}
+type StoreName = "messages" | "tasks" | "snapshots" | "runs";
 type LocalEngine = {
   chat: {
     completions: {
@@ -304,11 +346,14 @@ export function OfflineAIWorkspace() {
 
         "The approved department roster for this organization is exactly: " + (snapshot?.departments ?? []).map(item => item.name).join("; ") + ". Use these exact names only. Never invent, rename, replace, or add departments. If the roster is empty, say the department roster is unavailable; do not guess.",
         "Use the approved memories and feedback only when relevant. Treat the assigned task description, approved department roster, and supplied workspace snapshot as the only sources of truth. Separate verified facts from proposals and assumptions.",
-        "This is a software-planning task. Produce a concise implementation specification for the actual KANAKO AI workspace, not a generic essay, imaginary product, or list of capabilities. Do not invent sample departmental tasks, employees, database tables, APIs, files, existing features, or completed work. If a technical detail is not present in the snapshot, label it as a proposed design, not an existing fact.",
-        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. Clearly state that the specification is NOT IMPLEMENTED.",
+        "This is a software-planning task for the EXISTING KANAKO AI application. Do not design a replacement app or pretend the Task Center is empty. Verified architecture facts: Next.js application; Task Center is rendered in app/page.tsx; task mutations are server actions in app/actions.ts; Supabase stores records in tasks, task_updates, and activity_logs. Existing task fields include organization_id, title, description, status, priority, due_at, department_id, and assigned_agent_id. Existing task statuses are queued, in_progress, blocked, in_review, completed, and cancelled. These are verified existing facts, not suggestions.",
+        "For the task register, explain how to EXTEND and validate the existing Task Center rather than rebuilding it. Do not invent migrations, columns, APIs, files, employees, or completed work. If you propose a new field or table, label it clearly as a proposal and explain why existing fields cannot meet the requirement.",
+        "Use the approved department roster supplied above. Never substitute generic department names. Do not claim all nine departments are fully configured unless the supplied roster confirms it.",
+        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. Clearly state that this specification is NOT IMPLEMENTED.",
         "Output exactly these six Markdown headings, each on its own line, in this exact order, with no other headings: ## Task summary; ## Proposed work product; ## Implementation details; ## Acceptance checklist; ## Risks and missing information; ## Owner review required.",
-        "Under Proposed work product, give a compact task-register specification tied to the owner's stated requirements. Under Implementation details, list only the next concrete engineering steps. In Acceptance checklist, give testable pass/fail checks. In Risks and missing information, list only genuine unknowns. Under Owner review required, state only decisions the owner must make.",
-        "Keep the entire answer between 180 and 350 words. Do not repeat content. Do not add generic security, encryption, backup, API integration, deployment, or maintenance sections unless directly required by the task.",
+        "In Proposed work product, describe the existing Task Center improvements the owner requested. In Implementation details, explicitly reference app/page.tsx and app/actions.ts, and map each change to the verified task fields and existing tables. Explain status transition and organization-scoping validation. Do not claim code changes have already happened.",
+        "In Acceptance checklist, provide at least four observable pass/fail tests: create a task in each department; assign or leave unassigned; edit priority and due date; verify all six statuses; verify task update history and activity log are scoped to the same organization. In Risks and missing information, mention only real unknowns or edge cases, not generic security slogans. Under Owner review required, list only decisions that genuinely require the owner.",
+        "Keep the entire answer between 200 and 420 words. Avoid repeating the task description. No generic security, encryption, backup, integration, deployment, or maintenance sections unless directly required.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
       setRunStatus("Kanako is preparing the task instructions and local context…");
@@ -448,7 +493,7 @@ export function OfflineAIWorkspace() {
             {availableAgents.map(agent=><option key={agent.id} value={agent.id}>{agent.name} · {agent.job_title}</option>)}
           </select>
           <select className="field" value={selectedTaskId} onChange={event=>setSelectedTaskId(event.target.value)} disabled={!availableTasks.length || busy}>
-            {!availableTasks.length&&<option value="">No cached queued tasks</option>}
+            {!availableTasks.length&&<option value="">{runs.some(run => !run.syncedAt && run.agentId === selectedAgentId) ? "No eligible tasks · local result waiting for review/sync" : "No cached queued tasks"}</option>}
             {availableTasks.map(task=><option key={task.id} value={task.id}>{task.title}</option>)}
           </select>
           <button className="btn" onClick={runOfflineAgent} disabled={!modelReady || !selectedAgentId || !selectedTaskId || !availableTasks.some(task=>task.id===selectedTaskId) || busy}>{busy?"Running offline…":"Run selected employee offline"}</button>
@@ -456,7 +501,7 @@ export function OfflineAIWorkspace() {
         </div>
         {runOutput&&<details className="run-output" open><summary>Current local result</summary><pre>{runOutput}</pre></details>}
         <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || !organizationId || !runs.some(run=>!run.syncedAt)}>Sync results</button></div>
-        <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span><span className="pill">{run.quality?.status === "ready_for_review" ? "Quality checks passed" : run.quality ? "Needs revision" : "Not reviewed"}</span></div>{run.quality?.issues.length ? <ul className="muted" style={{fontSize:11,margin:"6px 0",paddingLeft:18}}>{run.quality.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : null}<p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
+        <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span><span className="pill">{run.quality?.status === "ready_for_review" ? "Structure checks passed · review required" : run.quality ? "Needs revision" : "Not reviewed"}</span></div>{run.quality?.issues.length ? <ul className="muted" style={{fontSize:11,margin:"6px 0",paddingLeft:18}}>{run.quality.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : null}<p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
         <button className="btn secondary" style={{marginTop:10}} onClick={()=>void refreshSnapshot(organizationId)} disabled={!online || !organizationId || refreshingSnapshot || busy}>{refreshingSnapshot ? "Refreshing snapshot…" : snapshot ? "Refresh offline snapshot" : "Prepare offline snapshot"}</button>
       </div>
     </div>
