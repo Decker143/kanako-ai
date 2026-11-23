@@ -147,7 +147,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
               "If only one attendee is listed, state that this is an individual CEO planning reflection, not a team roundtable.",
               "Write these sections: Discussion outline; Proposed decisions (owner approval required); Suggested action items (not assigned); Open questions.",
               "Label every decision as a proposal. Keep the result concise, practical, and easy for the owner to edit.",
-            ].join("\\n\\n"),
+            ].join("\n\n"),
           },
           {
             role: "user",
@@ -166,7 +166,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
         output += chunk.choices[0]?.delta?.content ?? "";
         setDrafts(current => {
           const existing = getDraft(meeting);
-          return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED DISCUSSION DRAFT — NOT A TRANSCRIPT\\n\\n" + output } };
+          return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED DISCUSSION DRAFT — NOT A TRANSCRIPT\n\n" + output } };
         });
       }
       setMessage("Free local AI draft prepared. It used only the meeting title, agenda, and attendee list; it did not access cloud tasks or record a real discussion. Review and save it yourself.");
