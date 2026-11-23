@@ -16,8 +16,14 @@ type DeskProps = {
 
 function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   const screen = useRef<THREE.Mesh>(null);
+  const character = useRef<THREE.Group>(null);
+  const leftArm = useRef<THREE.Mesh>(null);
+  const rightArm = useRef<THREE.Mesh>(null);
   const glow = agent.working ? "#59e6b0" : agent.departmentColor;
   useFrame(({ clock }) => {
+    if (character.current) character.current.position.y = agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0;
+    if (leftArm.current) leftArm.current.rotation.x = agent.working ? Math.sin(clock.elapsedTime * 5) * 0.12 : 0;
+    if (rightArm.current) rightArm.current.rotation.x = agent.working ? Math.cos(clock.elapsedTime * 5) * 0.12 : 0;
     if (screen.current && agent.working) {
       const pulse = 0.7 + Math.sin(clock.elapsedTime * 3.2) * 0.18;
       (screen.current.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
@@ -57,7 +63,7 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
         <cylinderGeometry args={[0.09, 0.09, 0.05, 16]} />
         <meshStandardMaterial color="#b6a48d" />
       </mesh>
-      <group position={[0, 0, -0.92]}>
+      <group ref={character} position={[0, 0, -0.92]}>
         <mesh position={[0, 0.56, 0]} castShadow>
           <boxGeometry args={[0.7, 0.12, 0.68]} />
           <meshStandardMaterial color="#34445b" />
@@ -82,8 +88,12 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
           <sphereGeometry args={[0.018, 8, 8]} />
           <meshBasicMaterial color="#24202a" />
         </mesh>
-        <mesh position={[0, 1.05, 0.02]} rotation={[0.3, 0, 0]}>
-          <capsuleGeometry args={[0.065, 0.32, 4, 8]} />
+        <mesh ref={leftArm} position={[-0.23, 1.0, 0.08]} rotation={[0.4, 0, -0.35]}>
+          <capsuleGeometry args={[0.055, 0.32, 4, 8]} />
+          <meshStandardMaterial color="#d6b69b" />
+        </mesh>
+        <mesh ref={rightArm} position={[0.23, 1.0, 0.08]} rotation={[0.4, 0, 0.35]}>
+          <capsuleGeometry args={[0.055, 0.32, 4, 8]} />
           <meshStandardMaterial color="#d6b69b" />
         </mesh>
         <Html position={[0, 1.92, -0.2]} center distanceFactor={11} style={{ pointerEvents: "none" }}>
