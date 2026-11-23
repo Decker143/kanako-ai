@@ -54,7 +54,7 @@ function buildTaskRegisterSpecification(taskTitle: string) {
 }
 
 function reviewLocalOutput(output: string, taskTitle: string, allowedDepartments: string[] = []) {
-  const text = output.trim();
+  const text = output.trim().replace(/\\(?=#{1,6}\\s)/g, "");
   const words = text.split(/\s+/).filter(Boolean);
   const issues: string[] = [];
   if (words.length < 180) issues.push("The specification is too short; include concrete implementation and test details.");
@@ -76,7 +76,8 @@ function reviewLocalOutput(output: string, taskTitle: string, allowedDepartments
 
   if (/centralized\s+task\s+register/i.test(taskTitle)) {
     const requiredArchitecture = ["app/page.tsx", "app/actions.ts", "tasks.organization_id", "tasks.due_at", "tasks.department_id", "tasks.assigned_agent_id", "task_updates", "activity_logs", "queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
-    const missingArchitecture = requiredArchitecture.filter(token => !lower.includes(token));
+    const normalizedArchitectureText = lower.replace(/[^a-z0-9]+/g, "");
+    const missingArchitecture = requiredArchitecture.filter(token => !normalizedArchitectureText.includes(token.toLowerCase().replace(/[^a-z0-9]+/g, "")));
     if (missingArchitecture.length) issues.push("Missing verified architecture details: " + missingArchitecture.join(", ") + ".");
     const implementation = lower.split("## implementation details")[1]?.split("## acceptance checklist")[0] ?? "";
     if (!implementation.includes("app/page.tsx") || !implementation.includes("app/actions.ts")) issues.push("Implementation details must describe changes to app/page.tsx and app/actions.ts.");
