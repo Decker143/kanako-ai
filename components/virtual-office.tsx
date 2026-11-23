@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const Office3DScene = dynamic(() => import("./office-3d-scene").then((module) => module.Office3DScene), {
   ssr: false,
@@ -20,7 +21,12 @@ function label(value:string) { return value.replaceAll("_"," ").replace(/\b\w/g,
 export function VirtualOffice({ organizationName, agents, departments, tasks, runs }: {
   organizationName:string; agents:Agent[]; departments:Department[]; tasks:Task[]; runs:Run[];
 }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<string | null>(agents[0]?.id ?? null);
+  useEffect(() => {
+    const refresh = window.setInterval(() => router.refresh(), 15000);
+    return () => window.clearInterval(refresh);
+  }, [router]);
   const [filter, setFilter] = useState("all");
   const activeRuns = runs.filter(run=>["running","in_progress","started"].includes(run.status));
   const openTasks = tasks.filter(task=>!["completed","cancelled"].includes(task.status));
@@ -35,7 +41,7 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
   return <main className="office-page">
     <header className="office-header">
       <Link href="/" className="office-brand"><span className="office-brand-mark">K</span><span><strong>KANAKO AI</strong><small>VIRTUAL COMPANY</small></span></Link>
-      <div className="office-header-actions"><span className="office-live"><i/> CLOUD WORKSPACE</span><Link href="/" className="btn secondary">← Command center</Link></div>
+      <div className="office-header-actions"><span className="office-live"><i/> CLOUD DATA · AUTO-REFRESH 15S</span><Link href="/" className="btn secondary">← Command center</Link></div>
     </header>
 
     <section className="office-hero">
@@ -103,6 +109,6 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
         </div>
       </div>
     </section>
-    <footer className="office-footer">KANAKO AI · VIRTUAL OFFICE BETA <span>Connected to organization records · Refresh the page to load the latest state</span></footer>
+    <footer className="office-footer">KANAKO AI · VIRTUAL OFFICE BETA <span>Connected to organization records · Data refreshes automatically every 15 seconds</span></footer>
   </main>;
 }
