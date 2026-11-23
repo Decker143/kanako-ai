@@ -227,6 +227,61 @@ export async function approveTaskHandoff(formData: FormData) {
   redirect("/?view=tasks&message=" + encodeURIComponent("Handoff approved and employee reassigned."));
 }
 
+export async function createStarterTeam() {
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Only the workspace owner or admin can create the starter AI team."));
+  }
+  const [{ data: departments, error: departmentError }, { data: existing, error: agentError }] = await Promise.all([
+    supabase.from("departments").select("id,name").eq("organization_id", organizationId),
+    supabase.from("ai_agents").select("id,job_title,department_id").eq("organization_id", organizationId),
+  ]);
+  if (departmentError || agentError) redirect("/?view=agents&error=" + encodeURIComponent("Could not load departments and current AI employee profiles."));
+  const starterRoles = [
+    { department: "Operations", name: "Operations AI", title: "AI Operations Manager", description: "Coordinates company operations, task routing, SOP compliance, and delivery follow-through.", instructions: "Coordinate operational work, track dependencies, surface blockers early, and request owner approval before consequential actions.", skills: ["operations management","task coordination","process improvement","SOP management","risk escalation"] },
+    { department: "Human Resources", name: "People AI", title: "AI Human Resources Manager", description: "Supports workforce planning, onboarding, role documentation, and people operations.", instructions: "Support HR administration and onboarding. Protect employee privacy and escalate hiring, compensation, or disciplinary decisions for owner review.", skills: ["HR operations","onboarding","workforce planning","documentation","policy coordination"] },
+    { department: "Customer Service", name: "Support AI", title: "AI Customer Service Manager", description: "Organizes customer inquiries, service quality, response drafts, and escalation handling.", instructions: "Prepare accurate customer support responses, classify issues, and escalate complaints, refunds, commitments, or sensitive matters for approval.", skills: ["customer support","case triage","communication","service recovery","quality monitoring"] },
+    { department: "Sales", name: "Sales AI", title: "AI Sales Manager", description: "Supports lead qualification, pipeline organization, sales research, and follow-up preparation.", instructions: "Research and organize sales opportunities, prepare follow-up drafts, and never make pricing or contractual commitments without approval.", skills: ["lead qualification","sales research","pipeline management","follow-up","objection analysis"] },
+    { department: "Marketing", name: "Marketing AI", title: "AI Marketing Manager", description: "Plans campaigns, content calendars, audience research, and marketing performance reviews.", instructions: "Develop evidence-based marketing plans and draft content. Do not publish, spend budget, or represent the company externally without approval.", skills: ["marketing strategy","content planning","campaign research","SEO","analytics"] },
+    { department: "Finance", name: "Finance AI", title: "AI Finance Manager", description: "Supports financial reporting, expense categorization, reconciliation preparation, and budget monitoring.", instructions: "Prepare financial summaries and reconciliation support. Do not move funds, issue payments, change bank details, or finalize accounting entries without approval.", skills: ["financial analysis","bookkeeping support","budget monitoring","reconciliation","reporting"] },
+    { department: "IT & Development", name: "Technology AI", title: "AI IT & Development Manager", description: "Coordinates technical support, software development planning, testing, and system documentation.", instructions: "Analyze technical requirements, propose and test changes, and never expose secrets or deploy production changes without explicit owner approval.", skills: ["software development","technical support","testing","system documentation","security awareness"] },
+    { department: "Analytics & QA", name: "Quality AI", title: "AI Analytics & QA Manager", description: "Monitors operational metrics, validates records, performs quality reviews, and prepares insights.", instructions: "Use traceable evidence, identify data-quality gaps, and distinguish verified findings from assumptions. Escalate material risks to the owner.", skills: ["data analysis","quality assurance","reporting","audit review","performance metrics"] },
+  ];
+  const missing = starterRoles.flatMap((profile) => {
+    const department = (departments ?? []).find((item) => item.name.toLowerCase() === profile.department.toLowerCase());
+    if (!department) return [];
+    const alreadyExists = (existing ?? []).some((agent) =>
+      agent.department_id === department.id && agent.job_title.toLowerCase() === profile.title.toLowerCase()
+    );
+    if (alreadyExists) return [];
+    return [{
+      organization_id: organizationId,
+      department_id: department.id,
+      name: profile.name,
+      job_title: profile.title,
+      description: profile.description,
+      instructions: profile.instructions,
+      skills: profile.skills,
+      max_concurrent_tasks: 2,
+      availability_status: "available",
+      model_provider: null,
+      model_name: null,
+      status: "draft",
+      created_by: user.id,
+      capabilities: [],
+      configuration: {},
+    }];
+  });
+  if (!missing.length) redirect("/?view=agents&message=" + encodeURIComponent("The starter team is already set up; no duplicate profiles were created."));
+  const { data: created, error } = await supabase.from("ai_agents").insert(missing).select("id");
+  if (error) redirect("/?view=agents&error=" + encodeURIComponent("Could not create the starter AI team: " + error.message));
+  for (const agent of created ?? []) {
+    await log(supabase, organizationId, user.id, "agent.starter_profile_created_as_draft", "ai_agent", agent.id);
+  }
+  revalidatePath("/");
+  redirect("/?view=agents&message=" + encodeURIComponent((created?.length ?? 0) + " starter AI employee profiles created as drafts. Connect and approve models and permissions before activation."));
+}
+
 export async function createAgent(formData: FormData) {
   const { supabase, user, organizationId } = await context();
   const name = String(formData.get("name") ?? "").trim();
