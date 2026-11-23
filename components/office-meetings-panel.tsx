@@ -26,8 +26,8 @@ type LocalMeetingEngine = {
 
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()); }
 
-export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskContext }: {
-  organizationId: string; agents: AgentOption[]; meetings: Meeting[]; taskContext: TaskContext[];
+export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskContext, taskContextStatus }: {
+  organizationId: string; agents: AgentOption[]; meetings: Meeting[]; taskContext: TaskContext[]; taskContextStatus: "loaded"|"empty"|"unavailable";
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -148,7 +148,12 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskCont
       return counts;
     }, {});
     const workspaceSnapshot = {
-      scope: "Current task records loaded from the authenticated organization's workspace. This is a limited snapshot, not necessarily the complete task history.",
+      sourceStatus: taskContextStatus,
+      scope: taskContextStatus === "unavailable"
+        ? "The workspace task query failed. No conclusion can be drawn about whether tasks exist."
+        : taskContextStatus === "empty"
+          ? "The workspace task query succeeded but returned zero task records for this organization."
+          : "Task records loaded from the authenticated organization's workspace. This is a limited snapshot, not necessarily the complete task history.",
       taskRecordsIncluded: taskContext.length,
       statusCounts,
       openTaskPriorityCounts: priorityCounts,
