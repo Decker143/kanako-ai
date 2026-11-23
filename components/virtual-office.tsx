@@ -89,14 +89,14 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
     <section className="office-scene-wrap">
       <div className="office-scene-top"><span><i className="scene-dot"/> INTERACTIVE 3D WORKSPACE</span><span>SELECT AN EMPLOYEE TO INSPECT THEIR WORK</span></div>
       <Office3DScene
-        agents={filteredAgents.map(agent => ({
+        agents={filteredAgents.map((agent, index) => ({
           id: agent.id,
           name: agent.name,
           jobTitle: agent.jobTitle,
           status: agent.status,
           departmentColor: departmentById.get(agent.departmentId ?? "")?.color ?? "#8b7cff",
           working: activeRuns.some(run => run.agentId === agent.id),
-          destination: officeCommands.find(command => command.agentId === agent.id)?.destination ?? null,
+          destination: officeCommands.find(command => command.agentId === agent.id)?.destination ?? null,\n          meetingSlot: index % 6,
           currentTask: (() => { const run = activeRuns.find(item => item.agentId === agent.id); return run?.taskId ? tasks.find(task => task.id === run.taskId)?.title ?? "Task in progress" : null; })(),
           taskCount: openTasks.filter(task => task.agentId === agent.id).length,
         }))}
@@ -116,7 +116,7 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
           {selectedAgent.skills.length>0&&<div className="inspector-skills">{selectedAgent.skills.map(skill=><span key={skill}>{skill}</span>)}</div>}
           <div className="office-command-actions">
             {selectedOfficeCommand?.destination === "collaboration_hub" ? <button className="btn secondary" disabled={commandBusy} onClick={()=>sendOfficeCommand("return_to_workstation",[selectedAgent.id])}>Return to workstation</button> : <button className="btn primary" disabled={commandBusy} onClick={()=>sendOfficeCommand("call_to_meeting",[selectedAgent.id])}>Call to Collaboration Hub</button>}
-            <button className="btn secondary" disabled={commandBusy || !filteredAgents.length} onClick={()=>sendOfficeCommand("call_to_meeting",filteredAgents.map(agent=>agent.id))}>Call this department</button>
+            <button className="btn secondary" disabled={commandBusy || !filteredAgents.length} onClick={()=>sendOfficeCommand("call_to_meeting",filteredAgents.slice(0,6).map(agent=>agent.id))}>Call this department</button>
           </div>
           {commandMessage && <p className="muted" role="status">{commandMessage}</p>}
           <div className="inspector-task-head"><strong>Assigned tasks</strong><span>{selectedTasks.length} recent</span></div>
