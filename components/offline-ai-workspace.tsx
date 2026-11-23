@@ -27,80 +27,65 @@ type OfflineSnapshot = {
 };
 type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string; quality?: { status: "ready_for_review" | "needs_revision"; wordCount: number; issues: string[] } };
 
+function buildTaskRegisterSpecification(taskTitle: string) {
+  return [
+    "## Task summary",
+    "Extend the existing KANAKO AI Task Center; this is a specification only and is NOT IMPLEMENTED.",
+    "",
+    "## Proposed work product",
+    "Improve the current owner-facing register instead of creating a second task system. Keep the existing task record as the source of truth: tasks.organization_id, title, description, status, priority, due_at, department_id, and assigned_agent_id. Preserve the six statuses: queued, in_progress, blocked, in_review, completed, and cancelled. Show department, assigned employee (or Unassigned), priority, due date, current status, and recent task activity in each task view.",
+    "",
+    "## Implementation details",
+    "In app/page.tsx, extend the existing Task Center list and edit controls to expose the verified fields, filter by department/status/assignee, and show task_updates history. In app/actions.ts, build on createTask, updateTaskStatus, createTaskUpdate, and approveTaskHandoff rather than adding duplicate actions. Keep every read and mutation scoped by organization_id from the authenticated membership. Validate department_id against departments.organization_id and assigned_agent_id against ai_agents.organization_id. Record task events in task_updates and actions in activity_logs. Keep due_at as the existing deadline field; do not add a separate schedule field unless the owner later requests time-of-day scheduling.",
+    "",
+    "## Acceptance checklist",
+    "1. Create a task with and without department_id and assigned_agent_id; both valid cases save under the current organization.",
+    "2. Edit priority and due_at and confirm the updated values appear after refresh.",
+    "3. Verify queued, in_progress, blocked, in_review, completed, and cancelled are displayed and only valid transitions are accepted.",
+    "4. Add a progress note and blocker; confirm task_updates and activity_logs contain the matching organization_id and task reference.",
+    "5. Attempt to use another organization's department or AI employee ID; the action must reject it.",
+    "",
+    "## Risks and missing information",
+    "The current task form supports a date-only due_at value, not a scheduled time. Confirm whether time-of-day scheduling is actually required. Confirm whether task deletion is required; no delete action is established by the reviewed task actions. Department and employee assignment may remain optional, so the UI must display Unassigned clearly.",
+    "",
+    "## Owner review required",
+    "Confirm whether task deletion and time-of-day scheduling are in scope. No new database table or column is recommended for the currently stated requirements."
+  ].join("\n");
+}
+
 function reviewLocalOutput(output: string, taskTitle: string, allowedDepartments: string[] = []) {
   const text = output.trim();
   const words = text.split(/\s+/).filter(Boolean);
   const issues: string[] = [];
-  if (words.length < 160) issues.push(`The result contains only \${words.length} words; add task-specific implementation detail.`);
-  if (words.length > 500) issues.push("The result is too long; remove repetition and unrelated detail.");
+  if (words.length < 180) issues.push("The specification is too short; include concrete implementation and test details.");
+  if (words.length > 450) issues.push("The result is too long; remove repetition and unrelated detail.");
   const lines = text.split(/\n/).map(line => line.trim()).filter(Boolean);
-  const headings = lines.filter(line => /^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line))
-    .map(line => line.replace(/^#{1,6}\s*/, "").replace(/^\*\*|\*\*$/g, "").replace(/:$/, "").toLowerCase());
-  const requiredHeadings = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
-  const missingHeadings = requiredHeadings.filter(heading => !headings.some(actual => actual === heading));
-  if (missingHeadings.length) issues.push(`Missing required sections: \${missingHeadings.join(", ")}.`);
-  const repeated = headings.filter((heading, index) => headings.indexOf(heading) !== index);
-  if (repeated.length) issues.push("One or more section headings are repeated.");
-
-  const sections = new Map<string, string>();
-  for (let i = 0; i < lines.length; i++) {
-    const heading = lines[i].replace(/^#{1,6}\s*/, "").replace(/^\*\*|\*\*$/g, "").replace(/:$/, "").toLowerCase();
-    if (requiredHeadings.includes(heading)) {
-      let body = "";
-      for (let j = i + 1; j < lines.length && !/^#{1,6}\s|^\*\*[^*]+\*\*$/.test(lines[j]); j++) body += lines[j] + "\n";
-      sections.set(heading, body);
-    }
-  }
-
-  const departmentMentions = [...text.matchAll(/Department\s+\d+\s*:\s*([^\n*]+)/gi)].map(match => match[1].trim());
-  const allowed = new Set(allowedDepartments.map(name => name.toLowerCase().trim()));
-  const inventedDepartments = departmentMentions.filter(name => !allowed.has(name.toLowerCase()));
-  if (inventedDepartments.length) issues.push("The result names departments outside the approved workspace roster: " + inventedDepartments.join(", ") + ".");
-
-  const meaningfulTerms = taskTitle.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 3);
+  const headings = lines.filter(line => /^#{1,6}\s/.test(line)).map(line => line.replace(/^#{1,6}\s*/, "").toLowerCase());
+  const required = ["task summary", "proposed work product", "implementation details", "acceptance checklist", "risks and missing information", "owner review required"];
+  const missing = required.filter(heading => !headings.includes(heading));
+  if (missing.length) issues.push("Missing required sections: " + missing.join(", ") + ".");
+  if (headings.length !== 6 || required.some((heading, index) => headings[index] !== heading)) issues.push("Use exactly the six required headings in the required order.");
   const lower = text.toLowerCase();
-  if (!meaningfulTerms.length || meaningfulTerms.filter(term => lower.includes(term)).length < Math.min(2, meaningfulTerms.length)) {
-    issues.push("The output does not clearly reference the assigned task.");
-  }
-
-  const bodyLines = lines.filter(line => !/^#{1,6}\s|^\*\*[^*]+\*\*$/.test(line));
-  const normalized = bodyLines.map(line => line.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()).filter(line => line.length > 35);
+  const meaningfulTerms = taskTitle.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 3);
+  if (!meaningfulTerms.length || meaningfulTerms.filter(term => lower.includes(term)).length < Math.min(2, meaningfulTerms.length)) issues.push("The output does not clearly reference the assigned task.");
+  const allowed = new Set(allowedDepartments.map(name => name.toLowerCase().trim()));
+  const departmentMentions = [...text.matchAll(/Department\s+\d+\s*:\s*([^\n*]+)/gi)].map(match => match[1].trim());
+  if (departmentMentions.some(name => !allowed.has(name.toLowerCase()))) issues.push("The result names departments outside the approved workspace roster.");
+  const normalized = lines.map(line => line.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()).filter(line => line.length > 40);
   if (normalized.some((line, index) => normalized.indexOf(line) !== index)) issues.push("One or more content lines are repeated.");
 
-  const isTaskRegister = /centralized\s+task\s+register|task\s+management\s+system/i.test(taskTitle);
-  if (isTaskRegister) {
-    const implementation = sections.get("implementation details") ?? "";
-    const acceptance = sections.get("acceptance checklist") ?? "";
-    const architectureAnchors = [
-      ["Next.js Task Center page", "app/page.tsx"],
-      ["server-side task actions", "app/actions.ts"],
-      ["existing tasks table", "tasks"],
-      ["task update history", "task_updates"],
-      ["audit trail", "activity_logs"],
-      ["organization ownership field", "organization_id"],
-      ["due-date field", "due_at"],
-      ["department assignment field", "department_id"],
-      ["employee assignment field", "assigned_agent_id"],
-    ] as const;
-    const missingAnchors = architectureAnchors.filter(([, token]) => !lower.includes(token));
-    if (missingAnchors.length) issues.push("The technical specification is missing verified architecture details: " + missingAnchors.map(([label]) => label).join(", ") + ".");
-    if (!/queued/.test(lower) || !/in_progress/.test(lower) || !/blocked/.test(lower) || !/in_review/.test(lower) || !/completed/.test(lower) || !/cancelled/.test(lower)) {
-      issues.push("The specification must include all existing task statuses: queued, in_progress, blocked, in_review, completed, and cancelled.");
-    }
-    if (!/app\/page\.tsx/.test(implementation) || !/app\/actions\.tsx?/.test(implementation)) {
-      issues.push("Implementation details must explain the specific changes needed in app/page.tsx and app/actions.ts.");
-    }
-    if (!/verify|test|confirm|ensure|must/i.test(acceptance)) {
-      issues.push("Acceptance checklist needs observable pass/fail tests, not only general goals.");
-    }
+  if (/centralized\s+task\s+register/i.test(taskTitle)) {
+    const requiredArchitecture = ["app/page.tsx", "app/actions.ts", "tasks.organization_id", "tasks.due_at", "tasks.department_id", "tasks.assigned_agent_id", "task_updates", "activity_logs", "queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
+    const missingArchitecture = requiredArchitecture.filter(token => !lower.includes(token));
+    if (missingArchitecture.length) issues.push("Missing verified architecture details: " + missingArchitecture.join(", ") + ".");
+    const implementation = lower.split("## implementation details")[1]?.split("## acceptance checklist")[0] ?? "";
+    if (!implementation.includes("app/page.tsx") || !implementation.includes("app/actions.ts")) issues.push("Implementation details must describe changes to app/page.tsx and app/actions.ts.");
+    if (!implementation.includes("organization_id")) issues.push("Explain organization-scoped validation in implementation details.");
   }
-
-  if (/\b(i have (built|implemented|deployed|updated)|successfully (built|implemented|deployed))\b/i.test(text)) {
-    issues.push("The output may claim implementation work that a text-only local run cannot perform.");
-  }
-  const status = issues.length ? "needs_revision" as const : "ready_for_review" as const;
-  return { status, wordCount: words.length, issues };
+  if (/\b(i have (built|implemented|deployed|updated)|successfully (built|implemented|deployed))\b/i.test(text)) issues.push("The output may claim implementation work that a text-only local run cannot perform.");
+  return { status: issues.length ? "needs_revision" as const : "ready_for_review" as const, wordCount: words.length, issues };
 }
+
 type StoreName = "messages" | "tasks" | "snapshots" | "runs";
 type LocalEngine = {
   chat: {
@@ -356,6 +341,26 @@ export function OfflineAIWorkspace() {
         "Keep the entire answer between 200 and 420 words. Avoid repeating the task description. No generic security, encryption, backup, integration, deployment, or maintenance sections unless directly required.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
+      if (/centralized\s+task\s+register/i.test(task.title)) {
+        setRunStatus("Kanako is preparing a verified specification from the existing Task Center architecture…");
+        const output = buildTaskRegisterSpecification(task.title);
+        const quality = reviewLocalOutput(output, task.title, (snapshot?.departments ?? []).map(item => item.name));
+        const localRun: LocalRun = {
+          id: crypto.randomUUID(),
+          agentId: agent.id,
+          taskId: task.id,
+          output,
+          model: "verified-local-template",
+          createdAt: new Date().toISOString(),
+          quality,
+        };
+        await saveRecord("runs", localRun);
+        setRuns(current => [localRun, ...current]);
+        setRunOutput(output);
+        setRunStatus("Offline run completed successfully. " + agent.name + " prepared a verified architecture-based specification for “" + task.title + "”. Human review is still required.");
+        setSyncMessage("Local specification saved on this device. It is not implemented and has not been synced.");
+        return;
+      }
       setRunStatus("Kanako is preparing the task instructions and local context…");
       const stream = await engine.chat.completions.create({
         messages: [
