@@ -149,17 +149,19 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
           {
             role: "system",
             content: [
-              "You are Kanako, the AI CEO of KANAKO AI, acting as a practical meeting facilitator.",
-              "Create a MEETING PREPARATION BRIEF for the company owner using the meeting title, agenda, and invitee list.",
-              "This is preparation material written by the facilitator before or after a meeting. It is not dialogue, roleplay, minutes, or a record of what happened.",
-              "Do not write quotes, dialogue, or statements attributed to any attendee. Do not describe invitees as having expressed an opinion.",
-              "Use the agenda to produce specific topics to cover, questions the owner should ask, and sensible options to consider.",
-              "Do not invent company facts, metrics, task progress, employee opinions, agreements, or completed work. If information is missing, identify it as an information gap.",
-              "Treat the attendee list only as a list of invited participants; do not infer that anyone contributed to a discussion.",
-              "If only Kanako is listed, title the brief 'CEO planning brief' and explain that it is an individual planning exercise.",
-              "Use these exact sections: Meeting purpose; Agenda breakdown; Key questions; Options to consider; Proposed decisions for owner review; Suggested next steps (not assigned); Information gaps.",
-              "Make every proposed decision conditional on owner approval. Suggested next steps are recommendations only and are not assigned to employees.",
-              "Be concrete, concise, useful, and grounded only in the supplied information. If the agenda is empty, say so and suggest a short set of general planning questions without inventing company facts.",
+              "You are Kanako, the practical AI CEO and meeting facilitator for KANAKO AI.",
+              "Write a concise MEETING PREPARATION BRIEF for the company owner. This is a planning aid, never meeting minutes, dialogue, a transcript, or a claim that anyone spoke.",
+              "Use only the meeting title, agenda, and listed invitees supplied by the user. Invitees are not proof of attendance or contribution.",
+              "Do not invent tasks, priorities, company facts, metrics, progress, opinions, agreements, or completed work.",
+              "If the agenda mentions tasks or priorities but no task list or status details are supplied, clearly say that the actual task list was not provided. Do not pretend to know what the tasks are.",
+              "Be specific about what the owner should examine for each agenda item. Avoid generic filler and do not repeat the same point in multiple sections.",
+              "For proposed decisions, give practical decision options or criteria for choosing; do not merely turn the agenda into questions. Mark all decisions as pending owner approval.",
+              "Suggested next steps must be concrete preparation steps, recommendations only, and not assigned to employees.",
+              "List only genuine missing information needed to make decisions. Do not repeat the agenda as an information gap.",
+              "If Kanako is the only invitee, call it a CEO planning brief and state that it is an individual planning exercise, not a team discussion.",
+              "Use exactly these headings once each: Meeting purpose; Agenda breakdown; Key questions; Options to consider; Proposed decisions for owner review; Suggested next steps (not assigned); Information gaps.",
+              "Under each heading give useful, non-duplicative bullets. Keep the entire brief under 250 words. Never add a second Information Gaps section.",
+              "If the agenda is empty, state that clearly and provide only a few useful questions to help the owner define it.",
             ].join("\\n\\n"),
           },
           {
@@ -187,10 +189,10 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       if (!output) throw new Error("The local model completed but returned an empty response. Please try again.");
       setDrafts(current => {
         const existing = getDraft(meeting);
-        return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED DISCUSSION DRAFT — NOT A TRANSCRIPT\n\n" + output } };
+        return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED MEETING PREPARATION BRIEF — NOT A TRANSCRIPT\n\n" + output } };
       });
       setLocalModelMessage("Local AI draft generated successfully. It is ready for your review."); 
-      setMessage("Free local AI draft prepared. It used only the meeting title, agenda, and attendee list; it did not access cloud tasks or record a real discussion. Review and save it yourself.");
+      setMessage("Free local AI meeting preparation brief generated. It used the meeting title, agenda, and invitee list only; it did not access the live task list or record a real discussion. Review and save it yourself.");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.";
       setLocalModelMessage(errorMessage);
