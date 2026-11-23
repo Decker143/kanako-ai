@@ -103,14 +103,34 @@ export async function updateTaskStatus(formData: FormData) {
   const { supabase, user, organizationId, role } = await context();
   const id = String(formData.get("task_id") ?? "");
   const status = String(formData.get("status") ?? "queued");
+  const priority = String(formData.get("priority") ?? "medium");
   const dueDate = String(formData.get("due_date") ?? "").trim();
-  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
-  const allowed = ["queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
-  if (!id || !allowed.includes(status)) return;
+  const departmentId = String(formData.get("department_id") ?? "") || null;
+  const assignedAgentId = String(formData.get("assigned_agent_id") ?? "") || null;
+  const allowedStatuses = ["queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
+  const allowedPriorities = ["low", "medium", "high", "urgent"];
+  if (!id || !allowedStatuses.includes(status) || !allowedPriorities.includes(priority)) {
+    redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid task status and priority."));
+  }
+  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) {
+    redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
+  }
+  const { data: currentTask } = await supabase.from("tasks")
+    .select("id,status,assigned_agent_id")
+    .eq("id", id).eq("organization_id", organizationId).maybeSingle();
+  if (!currentTask) redirect("/?view=tasks&error=" + encodeURIComponent("Task not found in this workspace."));
+  if (departmentId) {
+    const { data: department } = await supabase.from("departments").select("id")
+      .eq("id", departmentId).eq("organization_id", organizationId).maybeSingle();
+    if (!department) redirect("/?view=tasks&error=" + encodeURIComponent("Invalid department selection for this workspace."));
+  }
+  if (assignedAgentId) {
+    const { data: agent } = await supabase.from("ai_agents").select("id")
+      .eq("id", assignedAgentId).eq("organization_id", organizationId).maybeSingle();
+    if (!agent) redirect("/?view=tasks&error=" + encodeURIComponent("Invalid AI employee selection for this workspace."));
+  }
   if (status === "completed") {
-    const { data: taskForReview } = await supabase.from("tasks").select("id,status,assigned_agent_id")
-      .eq("id", id).eq("organization_id", organizationId).maybeSingle();
-    if (taskForReview?.status === "in_review" && taskForReview.assigned_agent_id && !["owner", "admin"].includes(role)) {
+    if (currentTask.status === "in_review" && currentTask.assigned_agent_id && !["owner", "admin"].includes(role)) {
       redirect("/?view=agents&error=" + encodeURIComponent("Only a workspace owner or admin can complete an AI-assigned task after review."));
     }
     const { data: pendingRun } = await supabase.from("agent_runs").select("id,output")
@@ -124,12 +144,19 @@ export async function updateTaskStatus(formData: FormData) {
     }
   }
   const { error } = await supabase.from("tasks").update({
-    status,
-    due_at: dueDate ? dueDate + "T23:59:59.999Z" : null,
+    status, priority, due_at: dueDate ? dueDate + "T23:59:59.999Z" : null,
+    department_id: departmentId, assigned_agent_id: assignedAgentId,
     completed_at: status === "completed" ? new Date().toISOString() : null,
   }).eq("id", id).eq("organization_id", organizationId);
-  if (!error) await log(supabase, organizationId, user.id, "task.status_updated", "task", id);
+  if (error) redirect("/?view=tasks&error=" + encodeURIComponent("Could not update task: " + error.message));
+  await supabase.from("task_updates").insert({
+    organization_id: organizationId, task_id: id, actor_user_id: user.id,
+    event_type: "note", message: "Task details updated (status: " + status.replaceAll("_", " ") + ", priority: " + priority + ").",
+    progress_percent: null, target_agent_id: null,
+  });
+  await log(supabase, organizationId, user.id, "task.updated", "task", id);
   revalidatePath("/");
+  redirect("/?view=tasks&success=" + encodeURIComponent("Task details saved successfully."));
 }
 
 export async function createTaskUpdate(formData: FormData) {
