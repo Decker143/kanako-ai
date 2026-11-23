@@ -168,7 +168,10 @@ export function OfflineAIWorkspace() {
       setSyncMessage("You are offline. Connect to the internet before refreshing the cloud snapshot.");
       return;
     }
-    if (refreshingSnapshot || busy) return;
+    if (refreshingSnapshot || busy) {
+      setSyncMessage("A local AI operation is already running. Wait for it to finish, then refresh the snapshot.");
+      return;
+    }
     setRefreshingSnapshot(true);
     setSyncMessage("Connecting to your cloud workspace and preparing the offline snapshot…");
     try {
@@ -509,6 +512,7 @@ export function OfflineAIWorkspace() {
         <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || !organizationId || !runs.some(run=>!run.syncedAt)}>Sync results</button></div>
         <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span><span className="pill">{run.quality?.status === "ready_for_review" ? "Structure checks passed · review required" : run.quality ? "Needs revision" : "Not reviewed"}</span></div>{run.quality?.issues.length ? <ul className="muted" style={{fontSize:11,margin:"6px 0",paddingLeft:18}}>{run.quality.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : null}<p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
         <button className="btn secondary" style={{marginTop:10}} onClick={()=>void refreshSnapshot(organizationId)} disabled={!online || !organizationId || refreshingSnapshot || busy}>{refreshingSnapshot ? "Refreshing snapshot…" : snapshot ? "Refresh offline snapshot" : "Prepare offline snapshot"}</button>
+        {!online ? <p className="muted" role="status" style={{fontSize:12,marginBottom:0}}>Connect to the internet to refresh the cloud snapshot.</p> : !organizationId ? <p className="muted" role="status" style={{fontSize:12,marginBottom:0}}>Workspace not detected yet. Open the signed-in KANAKO workspace once, then return here.</p> : syncMessage ? <p className="muted" role="status" aria-live="polite" style={{fontSize:12,marginBottom:0}}>{syncMessage}</p> : null}
       </div>
     </div>
 
@@ -518,7 +522,6 @@ export function OfflineAIWorkspace() {
       <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{tasks.filter(task=>!task.syncedAt).length} pending · {tasks.filter(task=>task.syncedAt).length} synced</span><button className="btn secondary" onClick={syncTasks} disabled={!online || !organizationId || !tasks.some(task=>!task.syncedAt)}>Sync tasks</button></div>
       <div className="offline-task-list">{tasks.map(task=><div className="offline-task" key={task.id}><div className="row-between"><strong>{task.title}</strong><span className="pill">{task.syncedAt?"Synced":"Local only"}</span></div>{task.description&&<p className="muted" style={{fontSize:12,margin:"6px 0 0"}}>{task.description}</p>}</div>)}{!tasks.length&&<div className="empty">No offline tasks saved yet.</div>}</div>
     </div>
-    {syncMessage&&<p className="muted" style={{fontSize:11}}>{syncMessage}</p>}
     <div className="notice">Hybrid mode keeps the local model, chats, task drafts, employee snapshots, and offline results in this browser. Connect online and sign in to refresh the employee snapshot or sync drafts and results to your cloud workspace. Online research, live integrations, and approvals require an internet connection. Device-local data does not automatically sync; use the Sync controls while online. Browser storage may be cleared or evicted, so keep important work synchronized.</div>
   </div>;
 }
