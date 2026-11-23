@@ -30,7 +30,8 @@ export async function GET(request: Request) {
     Array.isArray(agent.capabilities) && agent.capabilities.includes("task_execution") && agent.capabilities.includes("local_execution")
   );
   const agentIds = agents.map(agent => agent.id);
-  const [{ data: memories }, { data: learningEvents }, { data: previousRuns }] = await Promise.all([
+  const canReadKnowledge = agents.some(agent => Array.isArray(agent.capabilities) && agent.capabilities.includes("knowledge_read"));
+  const [{ data: memories }, { data: learningEvents }, { data: previousRuns }, { data: knowledgeDocuments }] = await Promise.all([
     agentIds.length
       ? supabase.from("agent_memories").select("agent_id,memory_type,title,content,confidence")
         .eq("organization_id", organizationId).in("agent_id", agentIds).eq("status", "approved")
@@ -46,6 +47,9 @@ export async function GET(request: Request) {
         .eq("organization_id", organizationId).in("agent_id", agentIds).eq("status", "succeeded")
         .order("created_at", { ascending: false }).limit(50)
       : Promise.resolve({ data: [] as {agent_id:string;input:unknown;output:unknown;created_at:string}[] }),
+    canReadKnowledge
+      ? supabase.from("knowledge_documents").select("title,content").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(8)
+      : Promise.resolve({ data: [] as {title:string;content:string}[] }),
   ]);
 
   return NextResponse.json({
@@ -56,6 +60,7 @@ export async function GET(request: Request) {
     departments: departments ?? [],
     memories: memories ?? [],
     learningEvents: learningEvents ?? [],
+    knowledgeDocuments: (knowledgeDocuments ?? []).map(document => ({ title: document.title, content: document.content.slice(0, 5000) })),
     previousRuns: (previousRuns ?? []).filter(run => {
       const output = run.output && typeof run.output === "object" && !Array.isArray(run.output) ? run.output as { review?: { decision?: string } } : {};
       return output.review?.decision === "approved";
