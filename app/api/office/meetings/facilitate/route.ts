@@ -133,6 +133,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ notes, decisions: decisionNotes, actionItems, openQuestions, draftOnly: true });
   } catch (error) {
     console.error("KANAKO AI meeting draft failed", error);
-    return NextResponse.json({ error: "Kanako could not prepare the meeting draft. Check AI Gateway access and model configuration." }, { status: 502 });
+    const providerMessage = error instanceof Error ? error.message : String(error);
+    if (/customer_verification_required|valid credit card on file|add a card/i.test(providerMessage)) {
+      return NextResponse.json({
+        code: "AI_GATEWAY_PAYMENT_METHOD_REQUIRED",
+        error: "Hindi pa naka-unlock ang Vercel AI Gateway. Nangangailangan ito ng verified payment method bago tumanggap ng AI requests. Walang nagawang charge mula sa failed request. Hindi kailangang magdagdag ng budget; maaari nating gamitin ang local AI fallback kapag naidagdag na ito.",
+      }, { status: 503 });
+    }
+    if (/rate.?limit|quota|billing|payment/i.test(providerMessage)) {
+      return NextResponse.json({
+        code: "AI_PROVIDER_LIMIT",
+        error: "Hindi available ang cloud AI dahil sa provider quota o billing restriction. Walang meeting draft na nagawa. Subukan ang local AI fallback o ayusin ang provider access.",
+      }, { status: 503 });
+    }
+    return NextResponse.json({
+      code: "AI_MEETING_DRAFT_FAILED",
+      error: "Hindi nakagawa si Kanako ng discussion draft. Tingnan ang AI service configuration o subukan muli mamaya.",
+    }, { status: 502 });
   }
 }
