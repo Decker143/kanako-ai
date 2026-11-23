@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -71,7 +72,7 @@ export async function PATCH(request: Request) {
   if (body?.action === "save_notes") {
     const notes = body.notes ?? "";
     const decisions = body.decisions ?? "";
-    const actionItems = Array.isArray(body.actionItems) ? body.actionItems.slice(0, 30) : [];
+    const actionItems = (Array.isArray(body.actionItems) ? body.actionItems.slice(0, 30) : []) as Json[];
     if (notes.length > 12000 || decisions.length > 12000 ||
         actionItems.some(item => typeof item !== "object" || item === null ||
           typeof (item as { text?: unknown }).text !== "string" ||
