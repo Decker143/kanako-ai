@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type AgentOption = { id: string; name: string; jobTitle: string; departmentId: string | null };
@@ -8,6 +8,18 @@ type Meeting = {
   id: string; title: string; agenda: string; status: string; scheduledFor: string | null;
   notes: string; decisions: string; actionItems: { text: string; completed?: boolean }[];
   createdAt: string; attendees: { agentId: string; attendanceStatus: string }[];
+};
+
+type LocalMeetingEngine = {
+  chat: {
+    completions: {
+      create: (args: {
+        messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+        stream?: boolean;
+        temperature?: number;
+      }) => Promise<AsyncIterable<{ choices: Array<{ delta?: { content?: string } }> }>>;
+    };
+  };
 };
 
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()); }
@@ -24,6 +36,11 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
   const [message, setMessage] = useState("");
   const [expanded, setExpanded] = useState<string | null>(meetings.find(m => m.status === "in_progress")?.id ?? meetings[0]?.id ?? null);
   const [drafts, setDrafts] = useState<Record<string, { notes: string; decisions: string; actions: string }>>({});
+  const localEngineRef = useRef<LocalMeetingEngine | null>(null);
+  const [localModelReady, setLocalModelReady] = useState(false);
+  const [loadingLocalModel, setLoadingLocalModel] = useState(false);
+  const [localModelProgress, setLocalModelProgress] = useState(0);
+  const [localModelMessage, setLocalModelMessage] = useState("Free local AI model is not loaded on this device.");
 
   const agentMap = useMemo(() => new Map(agents.map(agent => [agent.id, agent])), [agents]);
   async function request(url: string, method: "POST" | "PATCH", payload: Record<string, unknown>) {
@@ -80,6 +97,86 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
     } catch (error) { setMessage(error instanceof Error ? error.message : "AI meeting draft could not be generated."); }
     finally { setBusy(false); }
   }
+  async function prepareLocalMeetingModel() {
+    if (loadingLocalModel || localEngineRef.current) return;
+    if (!("gpu" in navigator)) {
+      setLocalModelMessage("WebGPU is unavailable. Use an updated Chrome or Edge browser with compatible graphics hardware.");
+      return;
+    }
+    setLoadingLocalModel(true);
+    setLocalModelMessage("Downloading and preparing the free local model. First-time setup may take several minutes and uses about 0.9 GB of graphics memory.");
+    try {
+      const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
+      const engine = await CreateMLCEngine("Llama-3.2-1B-Instruct-q4f16_1-MLC", {
+        initProgressCallback: (report) => {
+          setLocalModelProgress(Math.round((report.progress ?? 0) * 100));
+          setLocalModelMessage(report.text || "Downloading local model files…");
+        },
+      });
+      localEngineRef.current = engine as unknown as LocalMeetingEngine;
+      setLocalModelReady(true);
+      setLocalModelProgress(100);
+      setLocalModelMessage("Free local AI is ready on this device. Prompts are processed in your browser, not sent to Vercel AI Gateway.");
+    } catch (error) {
+      setLocalModelMessage(error instanceof Error ? error.message : "Could not load the local model. Check WebGPU support and available memory.");
+    } finally {
+      setLoadingLocalModel(false);
+    }
+  }
+
+  async function generateLocalMeetingDraft(meeting: Meeting) {
+    const engine = localEngineRef.current;
+    if (!engine || busy) return;
+    const attendeeContext = meeting.attendees.map(item => ({
+      name: agentMap.get(item.agentId)?.name ?? "AI employee",
+      role: agentMap.get(item.agentId)?.jobTitle ?? "Team member",
+      attendance: item.attendanceStatus,
+    }));
+    setBusy(true);
+    setMessage("");
+    try {
+      const stream = await engine.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You are Kanako, the AI CEO of KANAKO AI, running locally on the owner's device.",
+              "Create a useful meeting discussion preparation draft from only the supplied meeting title, agenda, and attendee roster.",
+              "This is NOT a transcript and no live conversation was captured. Never claim an attendee said, agreed, approved, completed, or promised anything.",
+              "Do not invent business facts, metrics, task progress, or employee opinions. You have no task snapshot or internet access in this local fallback.",
+              "If only one attendee is listed, state that this is an individual CEO planning reflection, not a team roundtable.",
+              "Write these sections: Discussion outline; Proposed decisions (owner approval required); Suggested action items (not assigned); Open questions.",
+              "Label every decision as a proposal. Keep the result concise, practical, and easy for the owner to edit.",
+            ].join("\\n\\n"),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              meeting: { title: meeting.title, agenda: meeting.agenda, status: meeting.status },
+              invitedAttendees: attendeeContext,
+              instruction: "Prepare a draft for the owner to review. Do not imply that the listed attendees actually spoke.",
+            }),
+          },
+        ],
+        stream: true,
+        temperature: 0.35,
+      });
+      let output = "";
+      for await (const chunk of stream) {
+        output += chunk.choices[0]?.delta?.content ?? "";
+        setDrafts(current => {
+          const existing = getDraft(meeting);
+          return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED DISCUSSION DRAFT — NOT A TRANSCRIPT\\n\\n" + output } };
+        });
+      }
+      setMessage("Free local AI draft prepared. It used only the meeting title, agenda, and attendee list; it did not access cloud tasks or record a real discussion. Review and save it yourself.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveNotes(meeting: Meeting) {
     const draft = getDraft(meeting);
     const actionItems = draft.actions.split("\n").map(text => text.trim()).filter(Boolean).slice(0, 30).map(text => ({ text, completed: false }));
@@ -135,7 +232,20 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
             </div>
             {(meeting.status === "in_progress" || meeting.status === "completed") && <div className="office-meeting-ai-draft">
               <button className="btn secondary" disabled={busy} onClick={() => generateMeetingDraft(meeting)}>{busy ? "Preparing…" : "Generate AI discussion draft"}</button>
-              <small>AI-generated proposal only — not a recording, transcript, real-time conversation, or approved decision.</small>
+              <small>Cloud AI uses Vercel AI Gateway and may require provider billing verification. The free local option below does not use AI Gateway.</small>
+              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn secondary" type="button" disabled={loadingLocalModel || localModelReady || busy} onClick={() => void prepareLocalMeetingModel()}>
+                    {loadingLocalModel ? "Preparing local AI…" : localModelReady ? "Free local AI ready" : "Prepare free local AI"}
+                  </button>
+                  <button className="btn secondary" type="button" disabled={!localModelReady || busy} onClick={() => void generateLocalMeetingDraft(meeting)}>
+                    {busy ? "Preparing…" : "Generate with local AI"}
+                  </button>
+                </div>
+                {(loadingLocalModel || localModelProgress > 0) && <div style={{ height: 6, background: "#263244", borderRadius: 8, overflow: "hidden" }}><div style={{ height: "100%", width: localModelProgress + "%", background: "#8b7cff", transition: "width .2s" }} /></div>}
+                <small>{localModelMessage}</small>
+              </div>
+              <small>All AI-generated content is a proposal only — not a recording, transcript, real-time conversation, or approved decision.</small>
             </div>}
             <label>Meeting notes<textarea rows={4} value={draft.notes} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, notes: e.target.value } }))} placeholder="Record what happened. Clearly label AI-generated drafts and verify them before saving." /></label>
             <label>Decisions<textarea rows={3} value={draft.decisions} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, decisions: e.target.value } }))} placeholder="Record confirmed decisions and approvals." /></label>
