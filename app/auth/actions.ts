@@ -20,14 +20,14 @@ export async function signUp(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("full_name") ?? "").trim().slice(0, 100);
   const organizationName = String(formData.get("organization_name") ?? "").trim().slice(0, 120);
-  if (!email || /\\s/.test(email) || !email.includes("@") || !email.slice(email.indexOf("@")).includes(".")) redirect("/?error=" + encodeURIComponent("Enter a valid email address."));
+  if (!email || /\s/.test(email) || !email.includes("@") || !email.slice(email.indexOf("@")).includes(".")) redirect("/?error=" + encodeURIComponent("Enter a valid email address."));
   if (password.length < 8) redirect("/?error=" + encodeURIComponent("Use at least 8 characters for your password."));
   if (!fullName) redirect("/?error=" + encodeURIComponent("Enter your name to create the owner account."));
   if (!organizationName) redirect("/?error=" + encodeURIComponent("Enter your company or workspace name."));
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
-  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\\/$/, "");
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
   const origin = configuredAppUrl || requestHeaders.get("origin") || (host ? `${protocol}://${host}` : "");
   if (!origin || !origin.startsWith("https://")) redirect("/?error=" + encodeURIComponent("Secure application URL is not configured. Please contact the administrator."));
   const { data, error } = await supabase.auth.signUp({
@@ -49,7 +49,7 @@ export async function signUp(formData: FormData) {
 export async function resendConfirmation(formData: FormData) {
   const supabase = await createClient();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
   if (!email || !email.includes("@")) redirect("/?error=" + encodeURIComponent("Enter the email address you used to register."));
   if (!appUrl || !appUrl.startsWith("https://")) redirect("/?error=" + encodeURIComponent("Secure application URL is not configured."));
   const { error } = await supabase.auth.resend({
