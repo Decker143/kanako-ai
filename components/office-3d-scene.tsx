@@ -7,7 +7,7 @@ import * as THREE from "three";
 
 type SceneAgent = {
   id: string; name: string; jobTitle: string; status: string;
-  departmentColor: string; working: boolean; taskCount: number; currentTask?: string | null;
+  departmentColor: string; working: boolean; taskCount: number; currentTask?: string | null; destination?: string | null;
 };
 type DeskProps = {
   agent: SceneAgent; position: [number, number, number];
@@ -22,9 +22,9 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   const head = useRef<THREE.Group>(null);
   const glow = agent.working ? "#59e6b0" : agent.departmentColor;
   useFrame(({ clock }) => {
-    if (character.current) character.current.position.y = agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0;
-    if (leftArm.current) leftArm.current.rotation.x = agent.working ? Math.sin(clock.elapsedTime * 5) * 0.12 : 0;
-    if (rightArm.current) rightArm.current.rotation.x = agent.working ? Math.cos(clock.elapsedTime * 5) * 0.12 : 0;
+    if (character.current) {\n      const moving = agent.destination === "collaboration_hub";\n      const target = moving ? new THREE.Vector3(-position[0], 0, 8.4 - position[2]) : new THREE.Vector3(0, 0, -0.92);\n      character.current.position.lerp(target, 1 - Math.exp(-clock.delta * 1.7));\n      character.current.position.y = (agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0) + (moving ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.035 : 0);\n      character.current.rotation.y = moving ? Math.PI : 0;\n    }
+    if (leftArm.current) leftArm.current.rotation.x = agent.destination === "collaboration_hub" ? Math.sin(clock.elapsedTime * 8) * 0.35 : agent.working ? Math.sin(clock.elapsedTime * 5) * 0.12 : 0;
+    if (rightArm.current) rightArm.current.rotation.x = agent.destination === "collaboration_hub" ? Math.cos(clock.elapsedTime * 8) * 0.35 : agent.working ? Math.cos(clock.elapsedTime * 5) * 0.12 : 0;
     if (head.current) { head.current.rotation.y = agent.working ? Math.sin(clock.elapsedTime * 0.8) * 0.035 : Math.sin(clock.elapsedTime * 0.35) * 0.025; head.current.rotation.x = agent.working ? Math.sin(clock.elapsedTime * 1.7) * 0.018 : 0; }
     if (screen.current && agent.working) {
       const pulse = 0.7 + Math.sin(clock.elapsedTime * 3.2) * 0.18;
@@ -111,7 +111,7 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
         <Html position={[0, 1.92, -0.2]} center distanceFactor={11} style={{ pointerEvents: "none" }}>
           <div className={`office-3d-label ${selected ? "selected" : ""}`}>
             <strong>{agent.name}</strong>
-            <span>{agent.working ? "● EXECUTING TASK" : agent.status === "active" ? "● AVAILABLE" : "● INACTIVE"}</span><small>{agent.jobTitle}</small>{agent.working && agent.currentTask && <em className="office-3d-current-task">{agent.currentTask}</em>}{agent.taskCount > 0 && <em>{agent.taskCount} OPEN TASK{agent.taskCount === 1 ? "" : "S"}</em>}
+            <span>{agent.destination === "collaboration_hub" ? "● WALKING TO MEETING" : agent.working ? "● EXECUTING TASK" : agent.status === "active" ? "● AVAILABLE" : "● INACTIVE"}</span><small>{agent.jobTitle}</small>{agent.working && agent.currentTask && <em className="office-3d-current-task">{agent.currentTask}</em>}{agent.taskCount > 0 && <em>{agent.taskCount} OPEN TASK{agent.taskCount === 1 ? "" : "S"}</em>}
           </div>
         </Html>
       </group>
