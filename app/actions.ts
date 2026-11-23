@@ -73,6 +73,8 @@ export async function createTask(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const priority = String(formData.get("priority") ?? "medium");
+  const dueDate = String(formData.get("due_date") ?? "").trim();
+  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
   const departmentId = String(formData.get("department_id") ?? "") || null;
   const assignedAgentId = String(formData.get("assigned_agent_id") ?? "") || null;
   if (!title) return;
@@ -87,6 +89,7 @@ export async function createTask(formData: FormData) {
   const { data, error } = await supabase.from("tasks").insert({
     organization_id: organizationId, title, description: description || null,
     priority: ["low", "medium", "high", "urgent"].includes(priority) ? priority : "medium",
+    due_at: dueDate ? dueDate + "T23:59:59.999Z" : null,
     department_id: departmentId, assigned_agent_id: assignedAgentId,
     created_by: user.id,
   }).select("id").single();
@@ -100,6 +103,8 @@ export async function updateTaskStatus(formData: FormData) {
   const { supabase, user, organizationId, role } = await context();
   const id = String(formData.get("task_id") ?? "");
   const status = String(formData.get("status") ?? "queued");
+  const dueDate = String(formData.get("due_date") ?? "").trim();
+  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
   const allowed = ["queued", "in_progress", "blocked", "in_review", "completed", "cancelled"];
   if (!id || !allowed.includes(status)) return;
   if (status === "completed") {
@@ -119,7 +124,9 @@ export async function updateTaskStatus(formData: FormData) {
     }
   }
   const { error } = await supabase.from("tasks").update({
-    status, completed_at: status === "completed" ? new Date().toISOString() : null,
+    status,
+    due_at: dueDate ? dueDate + "T23:59:59.999Z" : null,
+    completed_at: status === "completed" ? new Date().toISOString() : null,
   }).eq("id", id).eq("organization_id", organizationId);
   if (!error) await log(supabase, organizationId, user.id, "task.status_updated", "task", id);
   revalidatePath("/");
