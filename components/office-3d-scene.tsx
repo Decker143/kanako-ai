@@ -21,11 +21,11 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   const rightArm = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const glow = agent.working ? "#59e6b0" : agent.departmentColor;
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (character.current) {
       const moving = agent.destination === "collaboration_hub";
       const target = moving ? new THREE.Vector3(-position[0], 0, 8.4 - position[2]) : new THREE.Vector3(0, 0, -0.92);
-      character.current.position.lerp(target, 1 - Math.exp(-clock.delta * 1.7));
+      character.current.position.lerp(target, 1 - Math.exp(-delta * 1.7));
       character.current.position.y = (agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0) + (moving ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.035 : 0);
       character.current.rotation.y = moving ? Math.PI : 0;
     }
