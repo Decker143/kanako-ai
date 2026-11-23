@@ -368,7 +368,7 @@ export function OfflineAIWorkspace() {
       </div>
       <div className="panel">
         <div className="eyebrow">OFFLINE AI EMPLOYEES</div><h3>Run a cached employee locally</h3>
-        <p className="muted" style={{fontSize:12}}>This local-only build does not connect to the cloud workforce. Local employee profiles and task execution will be added to the device-local workspace.</p>
+        <p className="muted" style={{fontSize:12}}>Sign in to the online owner workspace while connected, then prepare a workspace snapshot here. Approved employees, tasks, and learning context can then be cached on this device for local execution.</p>
         <div className="form-stack">
           <select className="field" value={selectedAgentId} onChange={event=>setSelectedAgentId(event.target.value)} disabled={!availableAgents.length || busy}>
             {!availableAgents.length&&<option value="">No cached active employees</option>}
@@ -381,19 +381,19 @@ export function OfflineAIWorkspace() {
           <button className="btn" onClick={runOfflineAgent} disabled={!modelReady || !selectedAgentId || !selectedTaskId || !availableTasks.some(task=>task.id===selectedTaskId) || busy}>{busy?"Working…":"Run selected employee offline"}</button>
         </div>
         {runOutput&&<details className="run-output" open><summary>Current local result</summary><pre>{runOutput}</pre></details>}
-        <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled>Cloud sync disabled</button></div>
+        <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{runs.filter(run=>!run.syncedAt).length} results waiting · {runs.filter(run=>run.syncedAt).length} synced</span><button className="btn secondary" onClick={syncOfflineRuns} disabled={!online || !organizationId || !runs.some(run=>!run.syncedAt)}>Sync results</button></div>
         <div className="offline-task-list">{runs.map(run=><div className="offline-task" key={run.id}><div className="row-between"><strong>{availableAgents.find(agent=>agent.id===run.agentId)?.name ?? "AI employee"}</strong><span className="pill">{run.syncedAt?"Sent for review":"Local only"}</span></div><p className="muted" style={{fontSize:11,margin:"5px 0"}}>{snapshot?.tasks.find(task=>task.id===run.taskId)?.title ?? "Task"} · {new Date(run.createdAt).toLocaleString()}</p><details><summary>View local output</summary><pre className="document-content">{run.output}</pre></details></div>)}{!runs.length&&<div className="empty">No offline employee runs yet.</div>}</div>
-        <button className="btn secondary" style={{marginTop:10}} onClick={()=>{}} disabled>Cloud snapshot disabled</button>
+        <button className="btn secondary" style={{marginTop:10}} onClick={()=>void refreshSnapshot(organizationId)} disabled={!online || !organizationId}>{snapshot ? "Refresh offline snapshot" : "Prepare offline snapshot"}</button>
       </div>
     </div>
 
     <div className="panel">
       <div className="eyebrow">LOCAL TASK DRAFTS</div><h3>Capture work offline</h3>
       <form onSubmit={addOfflineTask} className="form-stack"><input className="field" value={taskTitle} onChange={event=>setTaskTitle(event.target.value)} placeholder="Task title" maxLength={180} required/><textarea className="field" value={taskDescription} onChange={event=>setTaskDescription(event.target.value)} rows={3} placeholder="Task details"/><button className="btn">Save on this device</button></form>
-      <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{tasks.filter(task=>!task.syncedAt).length} pending · {tasks.filter(task=>task.syncedAt).length} synced</span><button className="btn secondary" onClick={syncTasks} disabled>Cloud sync disabled</button></div>
+      <div className="row-between" style={{marginTop:18}}><span className="muted" style={{fontSize:12}}>{tasks.filter(task=>!task.syncedAt).length} pending · {tasks.filter(task=>task.syncedAt).length} synced</span><button className="btn secondary" onClick={syncTasks} disabled={!online || !organizationId || !tasks.some(task=>!task.syncedAt)}>Sync tasks</button></div>
       <div className="offline-task-list">{tasks.map(task=><div className="offline-task" key={task.id}><div className="row-between"><strong>{task.title}</strong><span className="pill">{task.syncedAt?"Synced":"Local only"}</span></div>{task.description&&<p className="muted" style={{fontSize:12,margin:"6px 0 0"}}>{task.description}</p>}</div>)}{!tasks.length&&<div className="empty">No offline tasks saved yet.</div>}</div>
     </div>
     {syncMessage&&<p className="muted" style={{fontSize:11}}>{syncMessage}</p>}
-    <div className="notice">Offline mode uses a cached workspace snapshot and device-local model. Web research, shared live data, external integrations, and approvals need an internet connection. Cloud synchronization is disabled in this local-only version. Cached workspace data stays in this browser profile; use a trusted device, not a shared/public computer. Browser storage may be cleared or evicted, so sync important work when possible.</div>
+    <div className="notice">Hybrid mode keeps the local model, chats, task drafts, employee snapshots, and offline results in this browser. Connect online and sign in to refresh the employee snapshot or sync drafts and results to your cloud workspace. Online research, live integrations, and approvals require an internet connection. Device-local data does not automatically sync; use the Sync controls while online. Browser storage may be cleared or evicted, so keep important work synchronized.</div>
   </div>;
 }
