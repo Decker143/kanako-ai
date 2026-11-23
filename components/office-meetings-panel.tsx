@@ -109,7 +109,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
           </button>
           {expanded === meeting.id && <div className="office-meeting-detail">
             {meeting.agenda && <div className="office-meeting-agenda"><b>Agenda</b><p>{meeting.agenda}</p></div>}
-            <div className="office-meeting-attendees"><b>Attendees</b><div>{attendees.map(attendee => <span key={attendee.agent.id}>{attendee.agent.name} <small>· {pretty(attendee.attendanceStatus)}</small></span>)}</div></div>
+            <div className="office-meeting-attendees"><b>Attendee attendance</b><div>{attendees.map(attendee => <span className="office-attendee-row" key={attendee.agent.id}><b>{attendee.agent.name}</b><strong className={"office-attendance-status " + attendee.attendanceStatus}>{pretty(attendee.attendanceStatus)}</strong></span>)}</div></div>
             <div className="office-meeting-actions">
               {meeting.status === "scheduled" && <button className="btn primary" disabled={busy} onClick={() => changeStatus(meeting, "start")}>Start meeting & call attendees</button>}
               {meeting.status === "in_progress" && <button className="btn primary" disabled={busy} onClick={() => changeStatus(meeting, "complete")}>Complete meeting</button>}
