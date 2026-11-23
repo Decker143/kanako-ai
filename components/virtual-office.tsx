@@ -111,6 +111,7 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
 
     <OfficeMeetingsPanel
       organizationId={organizationId}
+      taskContextStatus={taskContextStatus}
       agents={agents.map(agent => ({ id: agent.id, name: agent.name, jobTitle: agent.jobTitle, departmentId: agent.departmentId }))}
       meetings={meetings}
       taskContextStatus={taskContextStatus}
