@@ -16,9 +16,11 @@ type LocalMeetingEngine = {
       create: (args: {
         messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
         temperature?: number;
+        max_tokens?: number;
       }) => Promise<{ choices: Array<{ message?: { content?: string } }> }>;
     };
   };
+  interruptGenerate?: () => void;
 };
 
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()); }
@@ -40,6 +42,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
   const [loadingLocalModel, setLoadingLocalModel] = useState(false);
   const [localModelProgress, setLocalModelProgress] = useState(0);
   const [localModelMessage, setLocalModelMessage] = useState("Free local AI model is not loaded on this device.");
+  const [localGenerationSeconds, setLocalGenerationSeconds] = useState(0);
 
   const agentMap = useMemo(() => new Map(agents.map(agent => [agent.id, agent])), [agents]);
   async function request(url: string, method: "POST" | "PATCH", payload: Record<string, unknown>) {
@@ -132,10 +135,16 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       attendance: item.attendanceStatus,
     }));
     setBusy(true);
-    setMessage("Local AI is generating the meeting draft on this device. Please keep this tab open; generation may take a little while.");
-    setLocalModelMessage("Generating the meeting draft locally…");
+    setLocalGenerationSeconds(0);
+    setMessage("Local AI is generating the meeting draft on this device. Please keep this tab open.");
+    setLocalModelMessage("Generating locally. The draft is limited to a concise brief (maximum 512 tokens).");
+    const generationStartedAt = Date.now();
+    const progressTimer = window.setInterval(() => {
+      setLocalGenerationSeconds(Math.floor((Date.now() - generationStartedAt) / 1000));
+    }, 1000);
+    let timeoutId: number | undefined;
     try {
-      const completion = await engine.chat.completions.create({
+      const generationRequest = engine.chat.completions.create({
         messages: [
           {
             role: "system",
@@ -162,8 +171,18 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
             }),
           },
         ],
-        temperature: 0.35,
+        temperature: 0.2,
+        max_tokens: 512,
       });
+      const completion = await Promise.race([
+        generationRequest,
+        new Promise<never>((_, reject) => {
+          timeoutId = window.setTimeout(() => {
+            engine.interruptGenerate?.();
+            reject(new Error("Local AI took longer than 120 seconds and was stopped. Your meeting notes were not changed. Try again after closing other heavy browser tabs or checking available graphics memory."));
+          }, 120000);
+        }),
+      ]);
       const output = completion.choices[0]?.message?.content?.trim() ?? "";
       if (!output) throw new Error("The local model completed but returned an empty response. Please try again.");
       setDrafts(current => {
@@ -173,8 +192,12 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       setLocalModelMessage("Local AI draft generated successfully. It is ready for your review."); 
       setMessage("Free local AI draft prepared. It used only the meeting title, agenda, and attendee list; it did not access cloud tasks or record a real discussion. Review and save it yourself.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.");
+      const errorMessage = error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.";
+      setLocalModelMessage(errorMessage);
+      setMessage(errorMessage);
     } finally {
+      window.clearInterval(progressTimer);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       setBusy(false);
     }
   }
@@ -245,7 +268,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
                   </button>
                 </div>
                 {(loadingLocalModel || localModelProgress > 0) && <div style={{ height: 6, background: "#263244", borderRadius: 8, overflow: "hidden" }}><div style={{ height: "100%", width: localModelProgress + "%", background: "#8b7cff", transition: "width .2s" }} /></div>}
-                <small>{localModelMessage}</small>
+                <small>{busy && localModelReady ? `${localModelMessage} · ${Math.floor(localGenerationSeconds / 60).toString().padStart(2, "0")}:${(localGenerationSeconds % 60).toString().padStart(2, "0")} elapsed` : localModelMessage}</small>
               </div>
               <small>All AI-generated content is a proposal only — not a recording, transcript, real-time conversation, or approved decision.</small>
             </div>}
