@@ -16,20 +16,32 @@ export async function signIn(formData: FormData) {
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const fullName = String(formData.get("full_name") ?? "").trim().slice(0, 100);
+  const organizationName = String(formData.get("organization_name") ?? "").trim().slice(0, 120);
+  if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) redirect("/?error=" + encodeURIComponent("Enter a valid email address."));
   if (password.length < 8) redirect("/?error=" + encodeURIComponent("Use at least 8 characters for your password."));
+  if (!fullName) redirect("/?error=" + encodeURIComponent("Enter your name to create the owner account."));
+  if (!organizationName) redirect("/?error=" + encodeURIComponent("Enter your company or workspace name."));
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
   const origin = requestHeaders.get("origin") ?? (host ? `${protocol}://${host}` : "http://localhost:3000");
   const { data, error } = await supabase.auth.signUp({
     email, password,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+      data: { full_name: fullName, organization_name: organizationName },
+    },
   });
   if (error) redirect("/?error=" + encodeURIComponent(error.message));
-  if (!data.session) redirect("/?message=" + encodeURIComponent("Check your email to confirm your account, then sign in."));
-  redirect("/");
+  if (!data.user) redirect("/?error=" + encodeURIComponent("Account creation could not be confirmed. Please try again."));
+  if (!data.session) redirect("/?message=" + encodeURIComponent("Owner account created. Check your email to verify it. Your company workspace will be created automatically after verification."));
+  const { error: workspaceError } = await supabase.rpc("create_organization", { org_name: organizationName });
+  if (workspaceError) redirect("/?error=" + encodeURIComponent("Your account was created, but workspace setup needs attention: " + workspaceError.message));
+  revalidatePath("/");
+  redirect("/?message=" + encodeURIComponent("Owner account and company workspace created successfully."));
 }
 
 export async function signOut() {
