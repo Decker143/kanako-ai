@@ -26,8 +26,10 @@ export async function signUp(formData: FormData) {
   if (!organizationName) redirect("/?error=" + encodeURIComponent("Enter your company or workspace name."));
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
-  const origin = requestHeaders.get("origin") ?? (host ? `${protocol}://${host}` : "http://localhost:3000");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\\/$/, "");
+  const origin = configuredAppUrl || requestHeaders.get("origin") || (host ? `${protocol}://${host}` : "");
+  if (!origin || !origin.startsWith("https://")) redirect("/?error=" + encodeURIComponent("Secure application URL is not configured. Please contact the administrator."));
   const { data, error } = await supabase.auth.signUp({
     email, password,
     options: {
