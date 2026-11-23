@@ -145,6 +145,6 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
         </article>;
       })}
     </div>
-    {message && <p className="office-meeting-message" role="status">{message}</p>}
+    {message && <p className="office-meeting-message" role="alert" style={{ marginTop: 16, padding: "12px 14px", border: "1px solid var(--border, #39465a)", borderRadius: 10, background: "var(--panel, #151e2b)", color: "var(--text, #e8edf5)", lineHeight: 1.5 }}>{message}</p>}
   </section>;
 }
