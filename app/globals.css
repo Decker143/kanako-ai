@@ -60,3 +60,16 @@ button,input,textarea,select{font:inherit}a{color:inherit;text-decoration:none}.
 .office-footer{display:flex;justify-content:space-between;gap:14px;margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-size:9px;letter-spacing:.12em;color:#8491a5}.office-footer span{letter-spacing:0}
 @media(max-width:900px){.office-metrics{grid-template-columns:repeat(3,1fr)}.office-lower{grid-template-columns:1fr}.office-scene{height:570px}.office-desk{width:18%;min-width:90px}.scene-meeting{left:37%;width:27%}}
 @media(max-width:600px){.office-page{padding:16px 10px 30px}.office-header-actions{gap:8px}.office-live{display:none}.office-hero{align-items:flex-start}.office-clock{min-width:110px;padding:10px}.office-clock strong{font-size:23px}.office-metrics{grid-template-columns:repeat(2,1fr)}.office-scene{height:560px;min-width:600px}.office-scene-wrap{overflow-x:auto}.office-scene-top{min-width:600px}.office-scene-legend{min-width:600px}.office-toolbar{align-items:flex-start;flex-direction:column}.office-filter{max-width:none}.office-footer{flex-direction:column}.inspector-meta{grid-template-columns:115px 1fr}}
+
+
+/* Interactive 3D office scene */
+.office-3d-canvas{height:650px;position:relative;background:radial-gradient(ellipse at 50% 45%,#283752,#111a2a 72%);overflow:hidden}
+.office-3d-canvas canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.office-3d-loading{height:650px;display:grid;place-items:center;color:#aebbd0;background:#111a2a;font-size:13px}
+.office-3d-hint{position:absolute;left:14px;bottom:12px;padding:8px 11px;border:1px solid #45516a;background:#111a2acc;color:#c3cde0;border-radius:8px;font-size:9px;letter-spacing:.12em;pointer-events:none}
+.office-3d-label{min-width:100px;display:grid;gap:3px;padding:6px 9px;border:1px solid #58647d;border-radius:8px;background:#111a2aeF;color:#edf2fc;text-align:center;box-shadow:0 5px 18px #0007;white-space:nowrap}
+.office-3d-label strong{font-size:10px}.office-3d-label span{font-size:8px;color:#a99fff;letter-spacing:.08em}.office-3d-label.selected{border-color:#b5a8ff;box-shadow:0 0 18px #9b8cff77}
+.office-3d-wall-sign{padding:9px 17px;border:1px solid #8d82c4;border-radius:8px;background:#1a2440eF;color:#eeeaff;font-size:17px;font-weight:900;letter-spacing:.2em;text-align:center;white-space:nowrap;box-shadow:0 0 28px #8d82c455}
+.office-3d-wall-sign b{color:#a99bff}.office-3d-wall-sign small{display:block;margin-top:4px;color:#aebbd0;font-size:7px;letter-spacing:.2em}
+.office-3d-room-label{padding:5px 9px;border:1px solid #64718a;border-radius:6px;background:#172236eF;color:#d5def0;font-size:8px;letter-spacing:.15em;white-space:nowrap}
+@media(max-width:700px){.office-3d-canvas,.office-3d-loading{height:540px}.office-3d-hint{font-size:8px;left:8px;bottom:8px}}
