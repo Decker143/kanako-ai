@@ -14,6 +14,16 @@ export type Database = {
   }
   public: {
     Tables: {
+      office_commands: {
+        Row: { id: string; organization_id: string; agent_id: string; command: string; destination: string; status: string; created_by: string; created_at: string; completed_at: string | null }
+        Insert: { id?: string; organization_id: string; agent_id: string; command: string; destination: string; status?: string; created_by: string; created_at?: string; completed_at?: string | null }
+        Update: { id?: string; organization_id?: string; agent_id?: string; command?: string; destination?: string; status?: string; created_by?: string; created_at?: string; completed_at?: string | null }
+        Relationships: [
+          { foreignKeyName: "office_commands_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "office_commands_agent_id_fkey"; columns: ["agent_id"]; isOneToOne: false; referencedRelation: "ai_agents"; referencedColumns: ["id"] }
+        ]
+      }
+
       activity_logs: {
         Row: {
           action: string
