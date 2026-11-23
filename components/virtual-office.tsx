@@ -109,7 +109,18 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
       <div className="office-scene-legend"><span><i className="legend-working"/> Running task</span><span><i className="legend-ready"/> Active profile</span><span><i className="legend-idle"/> Inactive profile</span><span className="muted">Employee activity is based on saved agent execution records.</span></div>
     </section>
 
-    <OfficeMeetingsPanel organizationId={organizationId} agents={agents.map(agent => ({ id: agent.id, name: agent.name, jobTitle: agent.jobTitle, departmentId: agent.departmentId }))} meetings={meetings} />
+    <OfficeMeetingsPanel
+      organizationId={organizationId}
+      agents={agents.map(agent => ({ id: agent.id, name: agent.name, jobTitle: agent.jobTitle, departmentId: agent.departmentId }))}
+      meetings={meetings}
+      taskContext={tasks.map(task => ({
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        assignedTo: agents.find(agent => agent.id === task.agentId)?.name ?? "Unassigned",
+        updatedAt: task.updatedAt,
+      }))}
+    />
 
     <section className="office-lower">
       <div className="office-inspector">
