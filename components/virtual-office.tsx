@@ -19,8 +19,8 @@ type OfficeCommand = { id:string; agentId:string; command:string; destination:st
 function initials(name:string) { return name.split(/\s+/).slice(0,2).map(part=>part[0]??"").join("").toUpperCase(); }
 function label(value:string) { return value.replaceAll("_"," ").replace(/\b\w/g, c=>c.toUpperCase()); }
 
-export function VirtualOffice({ organizationName, agents, departments, tasks, runs }: {
-  organizationName:string; agents:Agent[]; departments:Department[]; tasks:Task[]; runs:Run[];
+export function VirtualOffice({ organizationName, organizationId, agents, departments, tasks, runs, officeCommands }: {
+  organizationName:string; organizationId:string; agents:Agent[]; departments:Department[]; tasks:Task[]; runs:Run[]; officeCommands:OfficeCommand[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(agents[0]?.id ?? null);
