@@ -270,7 +270,7 @@ export async function updateAgentCapabilities(formData: FormData) {
   if (error) redirect("/?view=agents&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "agent.capabilities_updated", "ai_agent", id);
   revalidatePath("/");
-  redirect("/?view=agents");
+  redirect("/?view=agents&success=" + encodeURIComponent("Permissions saved successfully. Your AI employee permissions are now up to date."));
 }
 
 export async function updateAgentStatus(formData: FormData) {
