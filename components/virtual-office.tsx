@@ -32,6 +32,11 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
   const openTasks = tasks.filter(task=>!["completed","cancelled"].includes(task.status));
   const onlineAgents = agents.filter(agent=>agent.status==="active");
   const filteredAgents = agents.filter(agent=>filter==="all" || agent.departmentId===filter);
+  useEffect(() => {
+    if (!filteredAgents.some(agent => agent.id === selected)) {
+      setSelected(filteredAgents[0]?.id ?? null);
+    }
+  }, [filteredAgents, selected]);
   const selectedAgent = agents.find(agent=>agent.id===selected) ?? null;
   const selectedTasks = selectedAgent ? tasks.filter(task=>task.agentId===selectedAgent.id).slice(0,5) : [];
   const selectedRun = selectedAgent ? runs.find(run=>run.agentId===selectedAgent.id && ["running","in_progress","started"].includes(run.status)) : null;
