@@ -23,6 +23,7 @@ type OfflineSnapshot = {
   memories: OfflineMemory[];
   learningEvents: OfflineLearningEvent[];
   previousRuns: OfflinePreviousRun[];
+  knowledgeDocuments: { title: string; content: string }[];
 };
 type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string };
 type StoreName = "messages" | "tasks" | "snapshots" | "runs";
@@ -219,7 +220,7 @@ export function OfflineAIWorkspace() {
     const agent = snapshot?.agents.find(item => item.id === selectedAgentId);
     const task = snapshot?.tasks.find(item => item.id === selectedTaskId && (!item.assigned_agent_id || item.assigned_agent_id === selectedAgentId));
     if (!engine || !agent || !task || busy) return;
-    if (runs.some(run => run.taskId === task.id)) {
+    if (runs.some(run => run.taskId === task.id && !run.syncedAt)) {
       setSyncMessage("This task already has a local result waiting to sync.");
       return;
     }
@@ -229,12 +230,15 @@ export function OfflineAIWorkspace() {
     try {
       const memories = (snapshot?.memories ?? []).filter(memory => memory.agent_id === agent.id);
       const learning = (snapshot?.learningEvents ?? []).filter(event => event.agent_id === agent.id).slice(0, 8);
-      const department = snapshot?.departments.find(item => item.id === agent.department_id);
+      const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
+      const department = capabilities.includes("department_read") ? snapshot?.departments.find(item => item.id === agent.department_id) : null;
+      const knowledge = capabilities.includes("knowledge_read") ? (snapshot?.knowledgeDocuments ?? []).map(document => ({ title: document.title, content: document.content.slice(0, 2500) })) : [];
       const system = [
         "You are " + agent.name + ", " + agent.job_title + ", an AI employee of KANAKO AI.",
         "You are executing locally on the user's device with no internet access. Do not claim to browse the web, access cloud services, or change external systems.",
         "Follow your role instructions unless they conflict with the safety rules: " + (agent.instructions || "Use professional judgment."),
-        "Department context: " + JSON.stringify(department ?? null),
+        "Department context (only available when permission is granted): " + JSON.stringify(department ?? null),
+        "Approved organization knowledge documents (only available when Read Knowledge Base permission is granted): " + JSON.stringify(knowledge),
         "Human-approved memories: " + JSON.stringify(memories.map(memory => ({ type: memory.memory_type, title: memory.title, content: memory.content }))),
         "Recent reviewer feedback and outcomes: " + JSON.stringify(learning.map(event => ({ outcome: event.event_type, feedback: event.feedback, lesson: event.lesson }))),
         "Examples of this employee's previously approved work (reuse the method only when relevant; do not copy old customer facts): " + JSON.stringify((snapshot?.previousRuns ?? []).filter(run => run.agent_id === agent.id).slice(0, 3).map(run => {
@@ -244,6 +248,8 @@ export function OfflineAIWorkspace() {
         })),
 
         "Use the approved memories and feedback to improve your approach. Do not copy old facts blindly. State limitations, assumptions, deliverables, and next steps.",
+        "You can only produce text in this local workspace. You cannot edit source code, databases, files, websites, or external systems. If the task requests software development or system changes, provide a concrete implementation specification and clearly state that the actual code changes remain undone.",
+        "Organize the deliverable using these headings: Task understanding; Execution plan; Deliverable; Acceptance checks; Assumptions and blockers; Recommended next step. Be specific, avoid repetition, and do not claim unfinished work is complete.",
         "Do not send messages, spend money, access accounts, or make irreversible changes. Prepare recommendations for human review.",
       ].join("\n\n");
       const stream = await engine.chat.completions.create({
@@ -259,6 +265,7 @@ export function OfflineAIWorkspace() {
         output += chunk.choices[0]?.delta?.content ?? "";
         setRunOutput(output);
       }
+      if (!output.trim()) throw new Error("The local model returned an empty result. Please try again.");
       const localRun: LocalRun = {
         id: crypto.randomUUID(),
         agentId: agent.id,
@@ -348,7 +355,7 @@ export function OfflineAIWorkspace() {
     }
   }
 
-  const availableTasks = (snapshot?.tasks ?? []).filter(task => (!task.assigned_agent_id || task.assigned_agent_id === selectedAgentId) && !runs.some(run => run.taskId === task.id));
+  const availableTasks = (snapshot?.tasks ?? []).filter(task => (!task.assigned_agent_id || task.assigned_agent_id === selectedAgentId) && !runs.some(run => run.taskId === task.id && !run.syncedAt));
   const availableAgents = snapshot?.agents ?? [];
 
   return <div className="offline-workspace">
