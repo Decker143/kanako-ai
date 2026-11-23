@@ -112,7 +112,7 @@ export async function updateTaskStatus(formData: FormData) {
   if (!id || !allowedStatuses.includes(status) || !allowedPriorities.includes(priority)) {
     redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid task status and priority."));
   }
-  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) {
+  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
     redirect("/?view=tasks&error=" + encodeURIComponent("Choose a valid due date."));
   }
   const { data: currentTask } = await supabase.from("tasks")
