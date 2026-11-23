@@ -63,7 +63,7 @@ function buildEmptyTaskBrief(meeting: Meeting) {
     "Information gaps",
     "- No task records were returned from the KANAKO AI workspace query.",
     "- The current task source, actual task list, owners, deadlines, dependencies, and priority criteria were not supplied.",
-  ].join("\\n");
+  ].join("\n");
 }
 
 function validateLocalBrief(output: string, taskContextStatus: "loaded" | "empty" | "unavailable", meeting: Meeting) {
@@ -72,12 +72,12 @@ function validateLocalBrief(output: string, taskContextStatus: "loaded" | "empty
     "options to consider", "proposed decisions for owner review",
     "suggested next steps (not assigned)", "information gaps",
   ];
-  const headings = output.split("\\n").map(line =>
+  const headings = output.split("\n").map(line =>
     line.replace(/\\*\\*/g, "").replace(/^#+\\s*/, "").replace(/:$/, "").trim().toLowerCase()
   );
   const headingCounts = expected.map(name => headings.filter(line => line === name).length);
   const duplicateHeading = headingCounts.some(count => count !== 1);
-  const contentLines = output.split("\\n")
+  const contentLines = output.split("\n")
     .map(line => line.replace(/^\\s*[-*+]\\s*/, "").replace(/\\*\\*/g, "").trim().toLowerCase())
     .filter(line => line.length > 24);
   const repeatedLines = contentLines.length - new Set(contentLines).size;
