@@ -407,9 +407,13 @@ export async function reviewAgentRun(formData: FormData) {
     redirect("/?view=agents&error=" + encodeURIComponent("The task is no longer waiting for review."));
   }
 
-  const nextTaskStatus = decision === "approved" ? "completed" : "queued";
   const previousOutput = run.output && typeof run.output === "object" && !Array.isArray(run.output)
     ? run.output as { [key: string]: Json | undefined } : {};
+  // A verified local specification is a proposal, not implemented work. Approving it
+  // must preserve the implementation task as open instead of marking it completed.
+  const isOfflineSpecification = previousOutput.source === "device_local_inference"
+    && previousOutput.model === "verified-local-template";
+  const nextTaskStatus = decision === "approved" && !isOfflineSpecification ? "completed" : "queued";
   const reviewedAt = new Date().toISOString();
   const { data: updatedRun, error: runError } = await supabase.from("agent_runs").update({
     output: {
@@ -428,6 +432,21 @@ export async function reviewAgentRun(formData: FormData) {
     completed_at: decision === "approved" ? reviewedAt : null,
   }).eq("id", task.id).eq("organization_id", organizationId).eq("status", "in_review")
     .select("id").maybeSingle();
+
+  if (decision === "approved" && isOfflineSpecification) {
+    const { error: taskNoteError } = await supabase.from("task_updates").insert({
+      organization_id: organizationId,
+      task_id: task.id,
+      actor_user_id: user.id,
+      event_type: "note",
+      message: "Owner approved the offline specification. Implementation remains open; this approval does not mark the development task completed.",
+      progress_percent: null,
+      target_agent_id: null,
+    });
+    if (taskNoteError) {
+      redirect("/?view=agents&error=" + encodeURIComponent("The specification was approved and the implementation task remains open, but its task-history note could not be recorded."));
+    }
+  }
   if (taskError || !updatedTask) {
     await supabase.from("agent_runs").update({ output: previousOutput })
       .eq("id", run.id).eq("organization_id", organizationId).eq("status", "succeeded");
