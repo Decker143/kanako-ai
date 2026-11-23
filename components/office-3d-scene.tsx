@@ -22,7 +22,13 @@ function Workstation({ agent, position, selected, onSelect }: DeskProps) {
   const head = useRef<THREE.Group>(null);
   const glow = agent.working ? "#59e6b0" : agent.departmentColor;
   useFrame(({ clock }) => {
-    if (character.current) {\n      const moving = agent.destination === "collaboration_hub";\n      const target = moving ? new THREE.Vector3(-position[0], 0, 8.4 - position[2]) : new THREE.Vector3(0, 0, -0.92);\n      character.current.position.lerp(target, 1 - Math.exp(-clock.delta * 1.7));\n      character.current.position.y = (agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0) + (moving ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.035 : 0);\n      character.current.rotation.y = moving ? Math.PI : 0;\n    }
+    if (character.current) {
+      const moving = agent.destination === "collaboration_hub";
+      const target = moving ? new THREE.Vector3(-position[0], 0, 8.4 - position[2]) : new THREE.Vector3(0, 0, -0.92);
+      character.current.position.lerp(target, 1 - Math.exp(-clock.delta * 1.7));
+      character.current.position.y = (agent.working ? Math.sin(clock.elapsedTime * 4) * 0.025 : 0) + (moving ? Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.035 : 0);
+      character.current.rotation.y = moving ? Math.PI : 0;
+    }
     if (leftArm.current) leftArm.current.rotation.x = agent.destination === "collaboration_hub" ? Math.sin(clock.elapsedTime * 8) * 0.35 : agent.working ? Math.sin(clock.elapsedTime * 5) * 0.12 : 0;
     if (rightArm.current) rightArm.current.rotation.x = agent.destination === "collaboration_hub" ? Math.cos(clock.elapsedTime * 8) * 0.35 : agent.working ? Math.cos(clock.elapsedTime * 5) * 0.12 : 0;
     if (head.current) { head.current.rotation.y = agent.working ? Math.sin(clock.elapsedTime * 0.8) * 0.035 : Math.sin(clock.elapsedTime * 0.35) * 0.025; head.current.rotation.x = agent.working ? Math.sin(clock.elapsedTime * 1.7) * 0.018 : 0; }
