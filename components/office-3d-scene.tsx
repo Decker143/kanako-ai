@@ -157,37 +157,37 @@ function OfficeArchitecture() {
   const chairs = useMemo(() => Array.from({ length: 6 }, (_, i) => i * Math.PI / 3), []);
   return <>
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]} receiveShadow>
-      <planeGeometry args={[19, 14]} />
+      <planeGeometry args={[19, 22]} />
       <meshStandardMaterial color="#28364a" roughness={0.88} />
     </mesh>
     <gridHelper args={[18, 36, "#526078", "#36445a"]} position={[0, -0.065, 0]} />
-    <mesh position={[0, 2.2, -6.8]} receiveShadow>
+    <mesh position={[0, 2.2, -10.8]} receiveShadow>
       <boxGeometry args={[19, 4.4, 0.25]} />
       <meshStandardMaterial color="#1c2638" />
     </mesh>
-    <mesh position={[-9.3, 2.2, 0]} receiveShadow><boxGeometry args={[0.25, 4.4, 13.5]} /><meshStandardMaterial color="#202b3d" /></mesh>
+    <mesh position={[-9.3, 2.2, 0]} receiveShadow><boxGeometry args={[0.25, 4.4, 21.5]} /><meshStandardMaterial color="#202b3d" /></mesh>
     <mesh position={[9.3, 2.2, 0]} receiveShadow><boxGeometry args={[0.25, 4.4, 13.5]} /><meshStandardMaterial color="#202b3d" /></mesh>
-    <mesh position={[0, 5.25, -6.62]}><boxGeometry args={[5.2, 1.25, 0.08]} /><meshStandardMaterial color="#344968" emissive="#385b88" emissiveIntensity={0.24} /></mesh>
-    <mesh position={[0, 5.25, -6.55]}><boxGeometry args={[4.7, 0.75, 0.04]} /><meshStandardMaterial color="#182d48" /></mesh>
-    <Html position={[0, 5.25, -6.45]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
+    <mesh position={[0, 5.25, -10.62]}><boxGeometry args={[5.2, 1.25, 0.08]} /><meshStandardMaterial color="#344968" emissive="#385b88" emissiveIntensity={0.24} /></mesh>
+    <mesh position={[0, 5.25, -10.55]}><boxGeometry args={[4.7, 0.75, 0.04]} /><meshStandardMaterial color="#182d48" /></mesh>
+    <Html position={[0, 5.25, -10.45]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
       <div className="office-3d-wall-sign">KANAKO <b>AI</b><small>ONE COMPANY · MANY MINDS</small></div>
     </Html>
-    <mesh position={[0, 0.12, -5.5]} castShadow><boxGeometry args={[4.6, 0.24, 1.3]} /><meshStandardMaterial color="#4a3e38" /></mesh>
-    <mesh position={[0, 0.72, -5.5]} castShadow><boxGeometry args={[3.6, 1.05, 0.08]} /><meshStandardMaterial color="#5d6680" transparent opacity={0.65} /></mesh>
-    <Html position={[0, 1.35, -5.45]} center distanceFactor={12}><div className="office-3d-room-label">CEO OFFICE</div></Html>
-    <mesh position={[0, 0.45, 5.25]} castShadow><cylinderGeometry args={[1.25, 1.25, 0.18, 48]} /><meshStandardMaterial color="#5a4a40" /></mesh>
-    <mesh position={[0, 0.57, 5.25]} castShadow><cylinderGeometry args={[1.05, 1.05, 0.08, 48]} /><meshStandardMaterial color="#a18b72" /></mesh>
-    {chairs.map((angle) => <group key={angle} position={[Math.cos(angle) * 1.65, 0, 5.25 + Math.sin(angle) * 1.65]} rotation={[0, -angle, 0]}>
+    <mesh position={[0, 0.12, -8.65]} castShadow><boxGeometry args={[5.4, 0.24, 2.2]} /><meshStandardMaterial color="#4a3e38" /></mesh>
+    <mesh position={[0, 0.72, -8.65]} castShadow><boxGeometry args={[4.4, 1.05, 0.08]} /><meshStandardMaterial color="#5d6680" transparent opacity={0.65} /></mesh>
+    <Html position={[0, 1.35, -8.0]} center distanceFactor={12}><div className="office-3d-room-label">CEO OFFICE</div></Html>
+    <mesh position={[0, 0.45, 8.4]} castShadow><cylinderGeometry args={[1.25, 1.25, 0.18, 48]} /><meshStandardMaterial color="#5a4a40" /></mesh>
+    <mesh position={[0, 0.57, 8.4]} castShadow><cylinderGeometry args={[1.05, 1.05, 0.08, 48]} /><meshStandardMaterial color="#a18b72" /></mesh>
+    {chairs.map((angle) => <group key={angle} position={[Math.cos(angle) * 1.65, 0, 8.4 + Math.sin(angle) * 1.65]} rotation={[0, -angle, 0]}>
       <mesh position={[0, 0.42, 0]} castShadow><boxGeometry args={[0.55, 0.12, 0.55]} /><meshStandardMaterial color="#52627c" /></mesh>
       <mesh position={[0, 0.75, -0.2]} castShadow><boxGeometry args={[0.55, 0.7, 0.12]} /><meshStandardMaterial color="#39465d" /></mesh>
     </group>)}
-    <Html position={[0, 1.4, 5.25]} center distanceFactor={12}><div className="office-3d-room-label">COLLABORATION HUB</div></Html>
-    <Plant position={[-8, 0, -5]} /><Plant position={[8, 0, -5]} /><Plant position={[-8, 0, 5]} /><Plant position={[8, 0, 5]} />
-    <mesh position={[-5.8, 1.55, -5.1]}><boxGeometry args={[1.4, 2.9, 0.1]} /><meshStandardMaterial color="#43546d" transparent opacity={0.45} /></mesh>
-    <mesh position={[5.8, 1.55, -5.1]}><boxGeometry args={[1.4, 2.9, 0.1]} /><meshStandardMaterial color="#43546d" transparent opacity={0.45} /></mesh>
-    <Html position={[-5.8, 3.2, -5.0]} center><div className="office-3d-room-label">OPERATIONS</div></Html>
-    <Html position={[5.8, 3.2, -5.0]} center><div className="office-3d-room-label">STRATEGY</div></Html>
-    <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[18, 13]} /><meshBasicMaterial color="#111a2a" transparent opacity={0.08} /></mesh>
+    <Html position={[0, 1.4, 8.4]} center distanceFactor={12}><div className="office-3d-room-label">COLLABORATION HUB</div></Html>
+    <Plant position={[-8, 0, -9.5]} /><Plant position={[8, 0, -9.5]} /><Plant position={[-8, 0, 9.5]} /><Plant position={[8, 0, 9.5]} />
+    <mesh position={[-7.6, 1.55, -6.5]}><boxGeometry args={[0.1, 2.9, 3.2]} /><meshStandardMaterial color="#43546d" transparent opacity={0.45} /></mesh>
+    <mesh position={[7.6, 1.55, -6.5]}><boxGeometry args={[1.4, 2.9, 0.1]} /><meshStandardMaterial color="#43546d" transparent opacity={0.45} /></mesh>
+    <Html position={[-7.6, 3.2, -6.5]} center><div className="office-3d-room-label">OPERATIONS</div></Html>
+    <Html position={[7.6, 3.2, -6.5]} center><div className="office-3d-room-label">STRATEGY</div></Html>
+    <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[18, 21]} /><meshBasicMaterial color="#111a2a" transparent opacity={0.08} /></mesh>
     <ambientLight intensity={1.15} />
     <directionalLight position={[5, 11, 7]} intensity={2.0} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
     <pointLight position={[-5, 3.5, -4]} color="#9b8cff" intensity={20} distance={12} />
@@ -202,12 +202,12 @@ function SceneContents({ agents, selected, onSelect }: {
     const columns = 5;
     const row = Math.floor(index / columns);
     const col = index % columns;
-    return [-6.4 + col * 3.2, 0, -3.0 + row * 2.75];
+    return [-6.4 + col * 3.2, 0, -3.5 + row * 3.5];
   }), [agents]);
   return <>
     <OfficeArchitecture />
     {agents.map((agent, index) => <Workstation key={agent.id} agent={agent} position={positions[index]} selected={selected === agent.id} onSelect={onSelect} />)}
-    <OrbitControls makeDefault minDistance={11} maxDistance={25} maxPolarAngle={Math.PI / 2.05} minPolarAngle={0.45} target={[0, 0.4, -0.2]} />
+    <OrbitControls makeDefault minDistance={11} maxDistance={31} maxPolarAngle={Math.PI / 2.05} minPolarAngle={0.45} target={[0, 0.4, 0]} />
   </>;
 }
 
@@ -217,7 +217,7 @@ export function Office3DScene({ agents, selected, onSelect }: {
   const sceneAgents = agents.slice(0, 15);
   return (
     <div className="office-3d-canvas">
-      <Canvas shadows dpr={[1, 1.6]} camera={{ position: [13, 13, 16], fov: 42 }} gl={{ antialias: true, alpha: false }}>
+      <Canvas shadows dpr={[1, 1.6]} camera={{ position: [15, 17, 21], fov: 42 }} gl={{ antialias: true, alpha: false }}>
         <color attach="background" args={["#111a2a"]} />
         <fog attach="fog" args={["#111a2a", 18, 34]} />
         <SceneContents agents={sceneAgents} selected={selected} onSelect={onSelect} />
