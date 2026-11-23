@@ -28,7 +28,9 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
     const refresh = window.setInterval(() => router.refresh(), 15000);
     return () => window.clearInterval(refresh);
   }, [router]);
-  const [filter, setFilter] = useState("all");\n  const [commandBusy, setCommandBusy] = useState(false);\n  const [commandMessage, setCommandMessage] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [commandBusy, setCommandBusy] = useState(false);
+  const [commandMessage, setCommandMessage] = useState("");
   const activeRuns = runs.filter(run=>["running","in_progress","started"].includes(run.status));
   const openTasks = tasks.filter(task=>!["completed","cancelled"].includes(task.status));
   const onlineAgents = agents.filter(agent=>agent.status==="active");
@@ -40,7 +42,20 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
   }, [filteredAgents, selected]);
   const selectedAgent = agents.find(agent=>agent.id===selected) ?? null;
   const selectedTasks = selectedAgent ? tasks.filter(task=>task.agentId===selectedAgent.id).slice(0,5) : [];
-  const selectedRun = selectedAgent ? runs.find(run=>run.agentId===selectedAgent.id && ["running","in_progress","started"].includes(run.status)) : null;\n  const selectedOfficeCommand = selectedAgent ? officeCommands.find(command=>command.agentId===selectedAgent.id) : null;\n  async function sendOfficeCommand(command:"call_to_meeting"|"return_to_workstation", agentIds:string[]) {\n    if (!agentIds.length || commandBusy) return;\n    setCommandBusy(true); setCommandMessage("");\n    try {\n      const response = await fetch("/api/office/commands", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ organizationId, agentIds, command }) });\n      const result = await response.json();\n      if (!response.ok) throw new Error(result.error || "Office command failed.");\n      setCommandMessage(command === "call_to_meeting" ? "Meeting invitation saved. Employees are heading to the Collaboration Hub." : "Return command saved.");\n      router.refresh();\n    } catch (error) { setCommandMessage(error instanceof Error ? error.message : "Office command failed."); }\n    finally { setCommandBusy(false); }\n  }
+  const selectedRun = selectedAgent ? runs.find(run=>run.agentId===selectedAgent.id && ["running","in_progress","started"].includes(run.status)) : null;
+  const selectedOfficeCommand = selectedAgent ? officeCommands.find(command=>command.agentId===selectedAgent.id) : null;
+  async function sendOfficeCommand(command:"call_to_meeting"|"return_to_workstation", agentIds:string[]) {
+    if (!agentIds.length || commandBusy) return;
+    setCommandBusy(true); setCommandMessage("");
+    try {
+      const response = await fetch("/api/office/commands", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ organizationId, agentIds, command }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Office command failed.");
+      setCommandMessage(command === "call_to_meeting" ? "Meeting invitation saved. Employees are heading to the Collaboration Hub." : "Return command saved.");
+      router.refresh();
+    } catch (error) { setCommandMessage(error instanceof Error ? error.message : "Office command failed."); }
+    finally { setCommandBusy(false); }
+  }
   const departmentById = useMemo(()=>new Map(departments.map(item=>[item.id,item])),[departments]);
   const agentById = useMemo(()=>new Map(agents.map(item=>[item.id,item])),[agents]);
 
@@ -97,7 +112,12 @@ export function VirtualOffice({ organizationName, agents, departments, tasks, ru
           <div className="inspector-person"><div className="inspector-avatar">{initials(selectedAgent.name)}</div><div><h3>{selectedAgent.name}</h3><p>{selectedAgent.jobTitle}</p></div><span className="pill">{label(selectedAgent.status)}</span></div>
           <p className="muted inspector-description">{selectedAgent.description || "No employee description has been added yet."}</p>
           <div className="inspector-meta"><span>Department</span><strong>{departmentById.get(selectedAgent.departmentId ?? "")?.name ?? "Unassigned"}</strong><span>Availability</span><strong>{label(selectedAgent.availability)}</strong><span>Current execution</span><strong>{selectedRun ? "Running" : "No active run recorded"}</strong></div>
-          {selectedAgent.skills.length>0&&<div className="inspector-skills">{selectedAgent.skills.map(skill=><span key={skill}>{skill}</span>)}</div>}\n          <div className="office-command-actions">\n            {selectedOfficeCommand?.destination === "collaboration_hub" ? <button className="btn secondary" disabled={commandBusy} onClick={()=>sendOfficeCommand("return_to_workstation",[selectedAgent.id])}>Return to workstation</button> : <button className="btn primary" disabled={commandBusy} onClick={()=>sendOfficeCommand("call_to_meeting",[selectedAgent.id])}>Call to Collaboration Hub</button>}\n            <button className="btn secondary" disabled={commandBusy || !filteredAgents.length} onClick={()=>sendOfficeCommand("call_to_meeting",filteredAgents.map(agent=>agent.id))}>Call this department</button>\n          </div>\n          {commandMessage && <p className="muted" role="status">{commandMessage}</p>}
+          {selectedAgent.skills.length>0&&<div className="inspector-skills">{selectedAgent.skills.map(skill=><span key={skill}>{skill}</span>)}</div>}
+          <div className="office-command-actions">
+            {selectedOfficeCommand?.destination === "collaboration_hub" ? <button className="btn secondary" disabled={commandBusy} onClick={()=>sendOfficeCommand("return_to_workstation",[selectedAgent.id])}>Return to workstation</button> : <button className="btn primary" disabled={commandBusy} onClick={()=>sendOfficeCommand("call_to_meeting",[selectedAgent.id])}>Call to Collaboration Hub</button>}
+            <button className="btn secondary" disabled={commandBusy || !filteredAgents.length} onClick={()=>sendOfficeCommand("call_to_meeting",filteredAgents.map(agent=>agent.id))}>Call this department</button>
+          </div>
+          {commandMessage && <p className="muted" role="status">{commandMessage}</p>}
           <div className="inspector-task-head"><strong>Assigned tasks</strong><span>{selectedTasks.length} recent</span></div>
           {selectedTasks.length ? selectedTasks.map(task=><div className="inspector-task" key={task.id}><span><b>{task.title}</b><small>{label(task.status)} · {label(task.priority)}</small></span><span className="pill">{task.status==="completed"?"DONE":"OPEN"}</span></div>) : <div className="empty">No tasks assigned to this employee.</div>}
         </> : <div className="empty">Select an employee workstation to view details.</div>}
