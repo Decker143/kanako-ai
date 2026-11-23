@@ -156,7 +156,7 @@ Future workforce capabilities:
 - Manual internal workflow actions: create task, request approval, search knowledge, log activity.
 - Controlled learning events and owner/admin-approved employee memories.
 - Offline PWA shell, WebLLM local model path, IndexedDB drafts/chat/results, snapshot and sync APIs.
-- Optional Brave research adapter behind a disabled feature flag and server-only key.
+- Optional Brave research adapter behind a disabled feature flag and server-only key.\n- [Preview implementation; live AI call not yet verified] Virtual Office meetings now support owner/admin-gated AI discussion drafts using meeting agenda, attendee role/skills, and a bounded open-task snapshot. Drafts are explicitly labeled as non-transcripts; proposed decisions and suggested action items are returned for owner review and are not auto-approved or assigned.
 - GitHub Actions quality pipeline (typecheck, lint, build). A prior commit passed; newest commits still require their own green checks.
 
 ### In progress / not yet proven end-to-end
