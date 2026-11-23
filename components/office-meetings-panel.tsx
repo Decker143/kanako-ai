@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type AgentOption = { id: string; name: string; jobTitle: string; departmentId: string | null };
+type TaskContext = { title: string; status: string; priority: string; assignedTo: string; updatedAt: string };
 type Meeting = {
   id: string; title: string; agenda: string; status: string; scheduledFor: string | null;
   notes: string; decisions: string; actionItems: { text: string; completed?: boolean }[];
@@ -25,8 +26,8 @@ type LocalMeetingEngine = {
 
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()); }
 
-export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
-  organizationId: string; agents: AgentOption[]; meetings: Meeting[];
+export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskContext }: {
+  organizationId: string; agents: AgentOption[]; meetings: Meeting[]; taskContext: TaskContext[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -134,6 +135,31 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       role: agentMap.get(item.agentId)?.jobTitle ?? "Team member",
       attendance: item.attendanceStatus,
     }));
+    const openTasks = taskContext.filter(task => !["completed", "cancelled"].includes(task.status.toLowerCase()));
+    const completedTasks = taskContext.filter(task => task.status.toLowerCase() === "completed");
+    const statusCounts = taskContext.reduce<Record<string, number>>((counts, task) => {
+      const status = task.status || "unknown";
+      counts[status] = (counts[status] ?? 0) + 1;
+      return counts;
+    }, {});
+    const priorityCounts = openTasks.reduce<Record<string, number>>((counts, task) => {
+      const priority = task.priority || "unspecified";
+      counts[priority] = (counts[priority] ?? 0) + 1;
+      return counts;
+    }, {});
+    const workspaceSnapshot = {
+      scope: "Current task records loaded from the authenticated organization's workspace. This is a limited snapshot, not necessarily the complete task history.",
+      taskRecordsIncluded: taskContext.length,
+      statusCounts,
+      openTaskPriorityCounts: priorityCounts,
+      openTasks: openTasks.slice(0, 30).map(task => ({
+        title: task.title, status: task.status, priority: task.priority,
+        assignedTo: task.assignedTo || "Unassigned", updatedAt: task.updatedAt,
+      })),
+      recentlyCompletedTasks: completedTasks.slice(0, 8).map(task => ({
+        title: task.title, updatedAt: task.updatedAt,
+      })),
+    };
     setBusy(true);
     setLocalGenerationSeconds(0);
     setMessage("Local AI is generating the meeting draft on this device. Please keep this tab open.");
@@ -151,9 +177,9 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
             content: [
               "You are Kanako, the practical AI CEO and meeting facilitator for KANAKO AI.",
               "Write a concise MEETING PREPARATION BRIEF for the company owner. This is a planning aid, never meeting minutes, dialogue, a transcript, or a claim that anyone spoke.",
-              "Use only the meeting title, agenda, and listed invitees supplied by the user. Invitees are not proof of attendance or contribution.",
+              "Use only the meeting title, agenda, listed invitees, and supplied workspace task snapshot. Invitees are not proof of attendance or contribution.",
               "Do not invent tasks, priorities, company facts, metrics, progress, opinions, agreements, or completed work.",
-              "If the agenda mentions tasks or priorities but no task list or status details are supplied, clearly say that the actual task list was not provided. Do not pretend to know what the tasks are.",
+              "Use the supplied task snapshot to identify actual open work, priority distribution, assignments, and recently completed work. Clearly state that the snapshot is limited and may not represent the full task history. If the snapshot is empty, say no task records were supplied.",
               "Be specific about what the owner should examine for each agenda item. Avoid generic filler and do not repeat the same point in multiple sections.",
               "For proposed decisions, give practical decision options or criteria for choosing; do not merely turn the agenda into questions. Mark all decisions as pending owner approval.",
               "Suggested next steps must be concrete preparation steps, recommendations only, and not assigned to employees.",
@@ -169,7 +195,8 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
             content: JSON.stringify({
               meeting: { title: meeting.title, agenda: meeting.agenda, status: meeting.status },
               invitedAttendees: attendeeContext,
-              instruction: "Prepare a draft for the owner to review. Do not imply that the listed attendees actually spoke.",
+              workspaceSnapshot,
+              instruction: "Prepare a context-aware brief using the actual task records. Name relevant tasks and explain why they matter to the agenda. Do not invent blockers or imply that invitees spoke.",
             }),
           },
         ],
@@ -192,7 +219,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
         return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED MEETING PREPARATION BRIEF — NOT A TRANSCRIPT\n\n" + output } };
       });
       setLocalModelMessage("Local AI draft generated successfully. It is ready for your review."); 
-      setMessage("Free local AI meeting preparation brief generated. It used the meeting title, agenda, and invitee list only; it did not access the live task list or record a real discussion. Review and save it yourself.");
+      setMessage("Free local AI meeting preparation brief generated. It used the meeting title, agenda, invitees, and the task snapshot loaded for this office page. It did not record a real discussion. Review and save it yourself.");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Local AI could not prepare this meeting draft.";
       const gpuDeviceLost = /mapAsync|GPUBuffer|external Instance|device lost|WebGPU/i.test(errorMessage);
