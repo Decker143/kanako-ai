@@ -62,6 +62,24 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       actions: (meeting.actionItems ?? []).map(item => item.text).join("\n"),
     };
   }
+  async function generateMeetingDraft(meeting: Meeting) {
+    const existing = getDraft(meeting);
+    setBusy(true); setMessage("");
+    try {
+      const result = await request("/api/office/meetings/facilitate", "POST", { organizationId, meetingId: meeting.id });
+      const separator = "\n\n---\n\n";
+      setDrafts(current => ({
+        ...current,
+        [meeting.id]: {
+          notes: existing.notes ? existing.notes + separator + result.notes : result.notes,
+          decisions: existing.decisions ? existing.decisions + separator + result.decisions : result.decisions,
+          actions: [existing.actions, ...(result.actionItems ?? []).map((item: { text: string }) => item.text)].filter(Boolean).join("\n"),
+        },
+      }));
+      setMessage("AI discussion draft prepared. Review and edit it before saving; it is not a transcript or an approved decision.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "AI meeting draft could not be generated."); }
+    finally { setBusy(false); }
+  }
   async function saveNotes(meeting: Meeting) {
     const draft = getDraft(meeting);
     const actionItems = draft.actions.split("\n").map(text => text.trim()).filter(Boolean).slice(0, 30).map(text => ({ text, completed: false }));
@@ -79,7 +97,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
 
   return <section className="office-meetings">
     <div className="office-meetings-heading">
-      <div><div className="eyebrow">COLLABORATION HUB</div><h2>Meetings & decisions</h2><p className="muted">Schedule a team meeting, call employees into the hub, and record the outcome.</p></div>
+      <div><div className="eyebrow">COLLABORATION HUB</div><h2>Meetings & decisions</h2><p className="muted">Schedule meetings, bring employees to the hub, and prepare AI-assisted discussion drafts for your review.</p></div>
       <span className="office-meeting-count">{meetings.filter(m => m.status === "scheduled" || m.status === "in_progress").length} OPEN</span>
     </div>
     <form className="office-meeting-create" onSubmit={createMeeting}>
@@ -115,9 +133,13 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
               {meeting.status === "in_progress" && <button className="btn primary" disabled={busy} onClick={() => changeStatus(meeting, "complete")}>Complete meeting</button>}
               {(meeting.status === "scheduled" || meeting.status === "in_progress") && <button className="btn secondary" disabled={busy} onClick={() => changeStatus(meeting, "cancel")}>Cancel</button>}
             </div>
-            <label>Meeting notes<textarea rows={4} value={draft.notes} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, notes: e.target.value } }))} placeholder="Record what happened. Do not leave this as an AI-generated claim unless verified." /></label>
+            {(meeting.status === "in_progress" || meeting.status === "completed") && <div className="office-meeting-ai-draft">
+              <button className="btn secondary" disabled={busy} onClick={() => generateMeetingDraft(meeting)}>{busy ? "Preparing…" : "Generate AI discussion draft"}</button>
+              <small>AI-generated proposal only — not a recording, transcript, real-time conversation, or approved decision.</small>
+            </div>}
+            <label>Meeting notes<textarea rows={4} value={draft.notes} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, notes: e.target.value } }))} placeholder="Record what happened. Clearly label AI-generated drafts and verify them before saving." /></label>
             <label>Decisions<textarea rows={3} value={draft.decisions} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, decisions: e.target.value } }))} placeholder="Record confirmed decisions and approvals." /></label>
-            <label>Action items (one per line)<textarea rows={3} value={draft.actions} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, actions: e.target.value } }))} placeholder="Follow up on the agreed next steps…" /></label>
+            <label>Action items (one per line)<textarea rows={3} value={draft.actions} onChange={e => setDrafts(current => ({ ...current, [meeting.id]: { ...draft, actions: e.target.value } }))} placeholder="Review suggested next steps and owners…" /></label>
             <button className="btn secondary" disabled={busy} onClick={() => saveNotes(meeting)}>Save meeting record</button>
           </div>}
         </article>;
