@@ -101,7 +101,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
       {!meetings.length && <div className="empty">No meetings yet. Create your first meeting above.</div>}
       {meetings.map(meeting => {
         const draft = getDraft(meeting);
-        const attendees = meeting.attendees.map(item => agentMap.get(item.agentId)).filter((item): item is AgentOption => !!item);
+        const attendees = meeting.attendees.map(item => ({ agent: agentMap.get(item.agentId), attendanceStatus: item.attendanceStatus })).filter((item): item is { agent: AgentOption; attendanceStatus: string } => !!item.agent);
         return <article className="office-meeting-card" key={meeting.id}>
           <button type="button" className="office-meeting-summary" onClick={() => setExpanded(expanded === meeting.id ? null : meeting.id)}>
             <span><b>{meeting.title}</b><small>{meeting.scheduledFor ? new Date(meeting.scheduledFor).toLocaleString() : "Unscheduled"} · {attendees.length} attendees</small></span>
@@ -109,7 +109,7 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings }: {
           </button>
           {expanded === meeting.id && <div className="office-meeting-detail">
             {meeting.agenda && <div className="office-meeting-agenda"><b>Agenda</b><p>{meeting.agenda}</p></div>}
-            <div className="office-meeting-attendees"><b>Attendees</b><div>{attendees.map(agent => <span key={agent.id}>{agent.name}</span>)}</div></div>
+            <div className="office-meeting-attendees"><b>Attendees</b><div>{attendees.map(attendee => <span key={attendee.agent.id}>{attendee.agent.name} <small>· {pretty(attendee.attendanceStatus)}</small></span>)}</div></div>
             <div className="office-meeting-actions">
               {meeting.status === "scheduled" && <button className="btn primary" disabled={busy} onClick={() => changeStatus(meeting, "start")}>Start meeting & call attendees</button>}
               {meeting.status === "in_progress" && <button className="btn primary" disabled={busy} onClick={() => changeStatus(meeting, "complete")}>Complete meeting</button>}
