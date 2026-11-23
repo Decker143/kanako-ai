@@ -26,6 +26,70 @@ type LocalMeetingEngine = {
 
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()); }
 
+
+function buildEmptyTaskBrief(meeting: Meeting) {
+  const agenda = meeting.agenda.trim() || "No agenda was provided.";
+  return [
+    "Meeting purpose",
+    "- Prepare an owner-led plan for establishing a reliable task register.",
+    "",
+    "Current task status",
+    "- The workspace task query succeeded but returned zero task records for this organization. This does not establish whether work exists outside KANAKO AI.",
+    "",
+    "Agenda breakdown",
+    `- Review the meeting agenda: ${agenda}`,
+    "- Establish how existing work will be captured before assigning priorities or deadlines.",
+    "",
+    "Key questions",
+    "- Where are current tasks tracked today, and which source should be treated as authoritative?",
+    "- Which tasks are active, completed, blocked, or planned, and who owns each?",
+    "- What deadlines, dependencies, and business priorities should be recorded?",
+    "",
+    "Options to consider",
+    "- Create tasks manually for a small, verified backlog.",
+    "- Import an existing task list if a reliable export is available; check for duplicates before importing.",
+    "- Start with a limited pilot list, validate the fields and workflow, then expand.",
+    "",
+    "Proposed decisions for owner review",
+    "- Choose the initial task source: manual entry, import, or a small pilot using both.",
+    "- Confirm required fields: task title, owner, status, priority, due date, and dependencies where relevant.",
+    "- Approve priority criteria before tasks are ranked; no tasks or owners are being assigned by this draft.",
+    "",
+    "Suggested next steps (not assigned)",
+    "- Gather the current task list from the tools or documents where work is already tracked.",
+    "- Remove duplicates and verify each task's owner, status, priority, and due date before entry.",
+    "- Review the first task register and correct missing or conflicting details before using it for planning.",
+    "",
+    "Information gaps",
+    "- No task records were returned from the KANAKO AI workspace query.",
+    "- The current task source, actual task list, owners, deadlines, dependencies, and priority criteria were not supplied.",
+  ].join("\\n");
+}
+
+function validateLocalBrief(output: string, taskContextStatus: "loaded" | "empty" | "unavailable", meeting: Meeting) {
+  const expected = [
+    "meeting purpose", "current task status", "agenda breakdown", "key questions",
+    "options to consider", "proposed decisions for owner review",
+    "suggested next steps (not assigned)", "information gaps",
+  ];
+  const headings = output.split("\\n").map(line =>
+    line.replace(/\\*\\*/g, "").replace(/^#+\\s*/, "").replace(/:$/, "").trim().toLowerCase()
+  );
+  const headingCounts = expected.map(name => headings.filter(line => line === name).length);
+  const duplicateHeading = headingCounts.some(count => count !== 1);
+  const contentLines = output.split("\\n")
+    .map(line => line.replace(/^\\s*[-*+]\\s*/, "").replace(/\\*\\*/g, "").trim().toLowerCase())
+    .filter(line => line.length > 24);
+  const repeatedLines = contentLines.length - new Set(contentLines).size;
+  const genericOwnerLoop = (output.match(/\\bthe owner should\\b/gi) ?? []).length;
+  const emptyDataIsMisrepresented = taskContextStatus === "empty" &&
+    /incomplete|outdated|missing updates|unreviewed task records/i.test(output);
+  if (duplicateHeading || repeatedLines >= 2 || genericOwnerLoop >= 4 || emptyDataIsMisrepresented) {
+    return buildEmptyTaskBrief(meeting);
+  }
+  return output.trim();
+}
+
 export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskContext, taskContextStatus }: {
   organizationId: string; agents: AgentOption[]; meetings: Meeting[]; taskContext: TaskContext[]; taskContextStatus: "loaded"|"empty"|"unavailable";
 }) {
@@ -190,8 +254,8 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskCont
               "Suggested next steps must be concrete preparation steps, recommendations only, and not assigned to employees.",
               "List only genuine missing information needed to make decisions. Do not repeat the agenda as an information gap.",
               "If Kanako is the only invitee, call it a CEO planning brief and state that it is an individual planning exercise, not a team discussion.",
-              "Use exactly these headings once each: Meeting purpose; Agenda breakdown; Key questions; Options to consider; Proposed decisions for owner review; Suggested next steps (not assigned); Information gaps.",
-              "Under each heading give useful, non-duplicative bullets. Keep the entire brief under 250 words. Never add a second Information Gaps section.",
+              "Use exactly these eight headings once each, in this order: Meeting purpose; Current task status; Agenda breakdown; Key questions; Options to consider; Proposed decisions for owner review; Suggested next steps (not assigned); Information gaps.",
+              "Under each heading give useful, non-duplicative bullets. Keep the entire brief under 250 words. Never repeat a heading or repeat the same recommendation in another section.",
               "If the agenda is empty, state that clearly and provide only a few useful questions to help the owner define it.",
             ].join("\\n\\n"),
           },
@@ -217,8 +281,9 @@ export function OfficeMeetingsPanel({ organizationId, agents, meetings, taskCont
           }, 120000);
         }),
       ]);
-      const output = completion.choices[0]?.message?.content?.trim() ?? "";
-      if (!output) throw new Error("The local model completed but returned an empty response. Please try again.");
+      const rawOutput = completion.choices[0]?.message?.content?.trim() ?? "";
+      if (!rawOutput) throw new Error("The local model completed but returned an empty response. Please try again.");
+      const output = validateLocalBrief(rawOutput, taskContextStatus, meeting);
       setDrafts(current => {
         const existing = getDraft(meeting);
         return { ...current, [meeting.id]: { ...existing, notes: "LOCAL AI-GENERATED MEETING PREPARATION BRIEF — NOT A TRANSCRIPT\n\n" + output } };
