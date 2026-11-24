@@ -16,6 +16,8 @@ export async function GET(request: Request) {
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only workspace owners or admins can prepare offline AI employee execution." }, { status: 403 });
   }
+  const { data: organization } = await supabase.from("organizations").select("name").eq("id", organizationId).maybeSingle();
+  if (!organization) return NextResponse.json({ error: "The selected workspace could not be found." }, { status: 404 });
 
   const [{ data: agentRows }, { data: tasks }, { data: departments }] = await Promise.all([
     supabase.from("ai_agents").select("id,name,job_title,instructions,department_id,capabilities")
@@ -54,6 +56,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     organizationId,
+    organizationName: organization.name,
     preparedAt: new Date().toISOString(),
     agents,
     tasks: tasks ?? [],
