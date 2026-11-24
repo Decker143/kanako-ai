@@ -70,7 +70,7 @@ begin
    for share;
 
   if not found
-     or v_agent.status <> 'active'
+     or v_agent.status is distinct from 'active'
      or not coalesce(v_agent.capabilities ? 'task_execution', false)
      or not coalesce(v_agent.capabilities ? 'local_execution', false) then
     raise exception 'The employee is not active or is not authorized for local task execution.';
