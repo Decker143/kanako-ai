@@ -17,8 +17,8 @@ The current Dev project `kanako-ai-dev-test` is not a complete application schem
 - The four fixture tables and seven `test_*` policies are intentional test assets and must be preserved.
 
 Static SQL review:
-- The first CEO Office migration adds the CEO Office department to existing organizations and defines `create_organization(text)` with the nine-department seed. Its multi-row department insert has no `RETURNING` clause; the earlier audit statement claiming otherwise was incorrect.
-- The following exact-version migration replaces the function with a version that explicitly selects the newly created CEO Office department using `SELECT ... INTO STRICT` before inserting Kanako. This is a defensive, deterministic lookup, not a correction to a multi-row `RETURNING` bug.
+- The first CEO Office migration inserts all nine departments in one multi-row `INSERT` and then uses `RETURNING id INTO ceo_department_id`. A multi-row INSERT can return multiple IDs, so assigning that result to a scalar variable is unsafe.
+- The following exact-version migration removes that multi-row `RETURNING` usage and instead explicitly selects the newly created CEO Office department using `SELECT ... INTO STRICT` before inserting Kanako.
 - The live Production function has the corrected explicit-selection pattern and seeds all nine departments, with Kanako in CEO Office as a draft.
 - Static inspection is not an end-to-end test and must not be marked complete.
 
