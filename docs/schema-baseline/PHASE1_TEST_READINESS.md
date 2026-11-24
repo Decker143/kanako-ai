@@ -6,7 +6,7 @@
 
 ## Nine-department organization-seed test
 
-<badge>BLOCKED — Dev baseline not applied</badge>
+**Status: BLOCKED — Dev baseline not applied**
 
 The canonical roadmap calls for verifying the nine-department migration and organization-creation function in a disposable test workspace or controlled test transaction.
 
