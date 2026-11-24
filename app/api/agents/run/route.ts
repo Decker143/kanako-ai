@@ -222,7 +222,9 @@ export async function POST(request: Request) {
       error: recoveryRequired
         ? "Execution stopped after GitHub changes. Human recovery review is required; repository changes were not rolled back."
         : "AI provider execution failed before any GitHub changes.",
-      output: recoveryRequired ? { recovery_required: true, github_side_effects: githubSideEffects } : null,
+      output: recoveryRequired
+        ? { recovery_required: true, github_side_effects: githubSideEffects }
+        : { failure_stage: "generation_or_persistence", github_side_effects: [] },
       finished_at: new Date().toISOString(),
     }).eq("id", runId).eq("organization_id", membership.organization_id);
     await supabase.from("tasks").update({
