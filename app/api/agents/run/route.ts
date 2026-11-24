@@ -193,7 +193,7 @@ export async function POST(request: Request) {
     if (messageError) throw messageError;
 
     const { error: updateError } = await supabase.from("agent_runs").update({
-      status: "succeeded", output: { text: result.text, model: agent.model_name, conversation_id: conversation.id },
+      status: "succeeded", output: { text: result.text, model: agent.model_name, conversation_id: conversation.id, github_side_effects: githubSideEffects },
       finished_at: new Date().toISOString(),
     }).eq("id", runId).eq("organization_id", membership.organization_id);
     if (updateError) throw updateError;
@@ -211,9 +211,9 @@ export async function POST(request: Request) {
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
       action: "ai_agent.task_run_succeeded", entity_type: "agent_run", entity_id: runId,
-      details: { task_id: task.id, model: agent.model_name },
+      details: { task_id: task.id, model: agent.model_name, github_side_effects: githubSideEffects },
     });
-    return NextResponse.json({ runId: runId, status: "succeeded", output: result.text, conversationId: conversation.id });
+    return NextResponse.json({ runId: runId, status: "succeeded", output: result.text, conversationId: conversation.id, githubSideEffects });
   } catch (error) {
     console.error("KANAKO AI agent run failed", error);
     const recoveryRequired = githubSideEffects.length > 0;
