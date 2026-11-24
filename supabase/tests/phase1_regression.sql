@@ -13,7 +13,24 @@ declare
   v_agent uuid;
   v_other_agent uuid;
   v_draft_agent uuid;
+  v_org2_agent uuid;
   v_task uuid;
+  v_plan_valid uuid;
+  v_plan_invalid uuid;
+  v_plan_empty uuid;
+  v_plan_badtitle uuid;
+  v_plan_baddept uuid;
+  v_plan_cross uuid;
+  v_plan_result jsonb;
+  v_plan_error text;
+  v_plan_code text;
+  v_plan_count integer;
+  v_learning_isolated integer;
+  v_event_isolated integer;
+  v_denied boolean := false;
+  v_learning_denied boolean := false;
+  v_memory_update_denied boolean := false;
+  v_private_memory uuid;
   v_run uuid;
   v_memory uuid;
   v_offline_task uuid;
@@ -78,6 +95,42 @@ begin
   )
   returning id into v_draft_agent;
 
+  insert into public.ai_agents(organization_id, name, job_title, status, capabilities, created_by)
+  values (v_org2, 'Phase 1 Isolated Regression Agent', 'Regression Test', 'active',
+    '["task_execution","local_execution"]'::jsonb, v_user)
+  returning id into v_org2_agent;
+
+  insert into public.reports(organization_id, title, report_type, content, generated_by)
+  values (v_org, 'Regression valid approval', 'project_plan',
+    '{"plan_status":"pending_approval","tasks":[{"title":"Regression approval task one"},{"title":"Regression approval task two","priority":"low"}]}'::jsonb, v_user)
+  returning id into v_plan_valid;
+  insert into public.reports(organization_id, title, report_type, content, generated_by)
+  values (v_org, 'Regression invalid status', 'project_plan',
+    '{"plan_status":"approved","tasks":[{"title":"Must not create"}]}'::jsonb, v_user)
+  returning id into v_plan_invalid;
+  insert into public.reports(organization_id, title, report_type, content, generated_by)
+  values (v_org, 'Regression empty plan', 'project_plan',
+    '{"plan_status":"pending_approval","tasks":[]}'::jsonb, v_user)
+  returning id into v_plan_empty;
+  insert into public.reports(organization_id, title, report_type, content, generated_by)
+  values (v_org, 'Regression blank title', 'project_plan',
+    '{"plan_status":"pending_approval","tasks":[{"title":"   "}]}'::jsonb, v_user)
+  returning id into v_plan_badtitle;
+  insert into public.reports(organization_id, title, report_type, content, generated_by)
+  values (v_org, 'Regression invalid department rollback', 'project_plan',
+    '{"plan_status":"pending_approval","tasks":[{"title":"Would be first"},{"title":"Must rollback","department_name":"Definitely Not A Department"}]}'::jsonb, v_user)
+  returning id into v_plan_baddept;
+  insert into public.reports(organization_id, title, report_type, content, generated_by)
+  values (v_org2, 'Regression cross-org plan', 'project_plan',
+    '{"plan_status":"pending_approval","tasks":[{"title":"Cross-org task"}]}'::jsonb, v_user)
+  returning id into v_plan_cross;
+
+  insert into public.agent_memories(organization_id, agent_id, memory_type, title, content, status, created_by)
+  values (v_org2, v_org2_agent, 'procedure', 'Isolated memory fixture',
+    'Must not be visible from the first workspace', 'pending', v_user);
+  insert into public.agent_learning_events(organization_id, agent_id, event_type, lesson, created_by)
+  values (v_org2, v_org2_agent, 'user_correction', 'Isolated event fixture', v_user);
+
   -- An AI-generated task cannot be completed until its latest successful run is approved.
   insert into public.tasks(organization_id, title, status, priority, assigned_agent_id, created_by)
   values (v_org, 'Phase 1 Lifecycle Regression', 'in_review', 'low', v_agent, v_user)
@@ -96,6 +149,78 @@ begin
    where organization_id = v_org2;
   if v_isolated <> 0 then
     raise exception 'FAIL organization isolation: non-member saw % rows', v_isolated;
+  end if;
+
+  select count(*) into v_learning_isolated from public.agent_memories where organization_id = v_org2;
+  select count(*) into v_event_isolated from public.agent_learning_events where organization_id = v_org2;
+  if v_learning_isolated <> 0 or v_event_isolated <> 0 then
+    raise exception 'FAIL learning isolation: saw % memories and % events', v_learning_isolated, v_event_isolated;
+  end if;
+
+  -- Non-members cannot approve plans.
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  begin
+    perform public.approve_project_plan(v_plan_valid, v_org);
+  exception when others then
+    get stacked diagnostics v_plan_code = returned_sqlstate;
+    v_denied := v_plan_code = '42501';
+  end;
+  if not v_denied then raise exception 'FAIL project-plan authorization: non-member was not denied'; end if;
+  perform set_config('request.jwt.claim.sub', v_user::text, true);
+
+  -- A plan from another workspace cannot be approved in this workspace.
+  v_plan_code := null;
+  begin
+    perform public.approve_project_plan(v_plan_cross, v_org);
+  exception when others then
+    get stacked diagnostics v_plan_code = returned_sqlstate;
+  end;
+  if v_plan_code <> 'P0002' then raise exception 'FAIL cross-workspace plan access: expected P0002, got %', v_plan_code; end if;
+
+  v_plan_result := public.approve_project_plan(v_plan_valid, v_org);
+  if (v_plan_result ->> 'created_task_count')::integer <> 2 then
+    raise exception 'FAIL plan approval: expected two tasks, got %', v_plan_result;
+  end if;
+  select count(*) into v_plan_count from public.tasks
+   where organization_id = v_org and metadata ->> 'project_plan_id' = v_plan_valid::text;
+  if v_plan_count <> 2 then raise exception 'FAIL plan approval: persisted task count %', v_plan_count; end if;
+
+  v_plan_code := null;
+  begin
+    perform public.approve_project_plan(v_plan_valid, v_org);
+  exception when others then
+    get stacked diagnostics v_plan_code = returned_sqlstate;
+  end;
+  if v_plan_code <> '55000' then raise exception 'FAIL duplicate plan approval: expected 55000, got %', v_plan_code; end if;
+
+  foreach v_plan_result in array array[
+    jsonb_build_object('id', v_plan_invalid, 'expected', '55000'),
+    jsonb_build_object('id', v_plan_empty, 'expected', '55000'),
+    jsonb_build_object('id', v_plan_badtitle, 'expected', '22023')
+  ] loop
+    v_plan_code := null;
+    begin
+      perform public.approve_project_plan((v_plan_result ->> 'id')::uuid, v_org);
+    exception when others then
+      get stacked diagnostics v_plan_code = returned_sqlstate;
+    end;
+    if v_plan_code <> v_plan_result ->> 'expected' then
+      raise exception 'FAIL plan validation: expected %, got %', v_plan_result ->> 'expected', v_plan_code;
+    end if;
+  end loop;
+
+  v_plan_code := null;
+  begin
+    perform public.approve_project_plan(v_plan_baddept, v_org);
+  exception when others then
+    get stacked diagnostics v_plan_code = returned_sqlstate;
+  end;
+  if v_plan_code <> '22023' then raise exception 'FAIL invalid department: expected 22023, got %', v_plan_code; end if;
+  select count(*) into v_plan_count from public.tasks
+   where organization_id = v_org and metadata ->> 'project_plan_id' = v_plan_baddept::text;
+  if v_plan_count <> 0 then raise exception 'FAIL plan atomic rollback: % tasks persisted', v_plan_count; end if;
+  if not exists (select 1 from public.reports where id = v_plan_baddept and content ->> 'plan_status' = 'pending_approval') then
+    raise exception 'FAIL plan atomic rollback: plan status changed';
   end if;
 
   begin
@@ -150,6 +275,26 @@ begin
   if not found then
     raise exception 'FAIL learning permissions: owner could not approve pending memory';
   end if;
+
+  insert into public.agent_memories(organization_id, agent_id, memory_type, title, content, status, created_by)
+  values (v_org, v_agent, 'correction', 'Non-member update guard',
+    'Only an owner may approve this memory', 'pending', v_user)
+  returning id into v_private_memory;
+
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  begin
+    insert into public.agent_learning_events(organization_id, agent_id, event_type, lesson, created_by)
+    values (v_org, v_agent, 'user_correction', 'Unauthorized event attempt', auth.uid());
+  exception when others then
+    get stacked diagnostics v_plan_code = returned_sqlstate;
+    v_learning_denied := v_plan_code = '42501';
+  end;
+  update public.agent_memories set status = 'approved', reviewed_by = auth.uid(), reviewed_at = now()
+   where id = v_private_memory;
+  v_memory_update_denied := not found;
+  perform set_config('request.jwt.claim.sub', v_user::text, true);
+  if not v_learning_denied then raise exception 'FAIL learning permissions: non-member inserted an event'; end if;
+  if not v_memory_update_denied then raise exception 'FAIL learning permissions: non-member updated a memory'; end if;
 
   -- Offline result sync must be atomic and idempotent across retries.
   insert into public.tasks(organization_id, title, status, priority, created_by)
@@ -258,9 +403,10 @@ begin
     raise exception 'FAIL offline sync: completed task accepted a new result';
   end if;
 
-  raise notice 'PASS: organization isolation';
+  raise notice 'PASS: organization and learning read isolation';
+  raise notice 'PASS: project-plan authorization, cross-org protection, validation, duplicate guard, and rollback';
   raise notice 'PASS: AI task review gate and approved completion';
-  raise notice 'PASS: learning memory pending gate and owner approval';
+  raise notice 'PASS: learning pending gate, owner approval, and non-member write protection';
   raise notice 'PASS: offline sync atomicity and duplicate retry';
   raise notice 'PASS: offline sync rejects mismatched replay, empty output, draft employee, wrong assignee, and stale task';
 end
