@@ -28,7 +28,7 @@ function createAppJwt() {
   return unsigned + "." + base64url(signer.sign(privateKey));
 }
 
-async function installationToken() {
+async function installationToken(access: "read" | "write" = "write") {
   const installationId = requiredEnv("KANAKO_GITHUB_INSTALLATION_ID");
   const jwt = createAppJwt();
   const response = await fetch(`${API}/app/installations/${installationId}/access_tokens`, {
@@ -41,7 +41,9 @@ async function installationToken() {
     },
     body: JSON.stringify({
       repositories: [REPOSITORY],
-      permissions: { contents: "write", pull_requests: "write" },
+      permissions: access === "read"
+        ? { contents: "read", pull_requests: "read" }
+        : { contents: "write", pull_requests: "write" },
     }),
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
@@ -168,7 +170,7 @@ export async function createKanakoGitHubTools() {
 
 export async function checkKanakoGitHubConnection() {
   assertRepo();
-  const token = await installationToken();
+  const token = await installationToken("read");
   const repo = await githubRequest<{ full_name: string; permissions?: { contents?: string; pull_requests?: string } }>(
     token, `/repos/${OWNER}/${REPOSITORY}`,
   );
