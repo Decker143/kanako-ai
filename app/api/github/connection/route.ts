@@ -15,14 +15,18 @@ export async function GET() {
     return NextResponse.json({ connected: false, error: "Only workspace owners and admins can inspect the GitHub connection." }, { status: 403 });
   }
 
-  if (process.env.KANAKO_GITHUB_EXECUTION_ENABLED !== "true") {
-    return NextResponse.json({ connected: false, enabled: false, message: "GitHub code execution is disabled. The connection can be enabled after secure configuration." });
-  }
+  const enabled = process.env.KANAKO_GITHUB_EXECUTION_ENABLED === "true";
 
   try {
+    // Verify the GitHub App with a read-only installation token.
+    // Connection health checks must not require enabling repository writes.
     const connection = await checkKanakoGitHubConnection();
-    return NextResponse.json({ ...connection, enabled: true });
+    return NextResponse.json({
+      ...connection,
+      enabled,
+      message: enabled ? "GitHub connection verified." : "GitHub connection verified. Code execution remains disabled.",
+    });
   } catch {
-    return NextResponse.json({ connected: false, enabled: true, error: "GitHub App authentication failed. Check the server-side configuration and installation access." }, { status: 503 });
+    return NextResponse.json({ connected: false, enabled, error: "GitHub App authentication failed. Check the server-side configuration and installation access." }, { status: 503 });
   }
 }
