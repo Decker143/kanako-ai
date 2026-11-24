@@ -24,7 +24,7 @@ The live Production catalog was compared with the generated schema reference:
 - All 115 constraint names/definitions matched.
 - All 58 standalone index definitions matched.
 - All 72 RLS policy expressions matched.
-- All 8 function definitions and 10 trigger definitions matched.
+- All 8 function definitions and 10 public trigger definitions matched. Production also has a separate custom `auth.users.on_auth_user_created` trigger calling `public.handle_new_user()`; Dev lacks it, so the candidate restores it explicitly.
 - All 78 table-grant sets and 21 routine-grant entries matched.
 - All 21 public tables have RLS enabled.
 - Schema ACLs and default privileges were reviewed separately. The generated reference omits required function REVOKEs, so the candidate adds explicit revokes to reproduce the live Production routine ACLs. PUBLIC execution is retained only for `public.set_updated_at()`.
@@ -35,7 +35,7 @@ The live Production catalog was compared with the generated schema reference:
 - 17 missing tables and 21 missing columns.
 - Three shared-column defaults restored.
 - 112 missing constraints, including 14 existing-fixture foreign keys marked `NOT VALID`.
-- 58 standalone indexes, 8 functions, 10 triggers, 72 Production policies, 78 table grants, 21 routine grants, and 7 function revokes.
+- 58 standalone indexes, 8 functions, 10 public triggers plus 1 Auth trigger, 72 Production policies, 78 table grants, 21 routine grants, and 7 function revokes.
 - Preservation of the four existing fixture tables, all current fixture rows, seven test policies, current grants, and the Dev-only reservation function.
 
 ## Remaining pre-application decisions
