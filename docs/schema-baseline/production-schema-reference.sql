@@ -407,7 +407,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.has_org_role(target_org uuid, allowed_roles text[])
  RETURNS boolean
@@ -421,7 +421,7 @@ AS $function$
       and m.user_id = (select auth.uid())
       and m.role = any(allowed_roles)
   );
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.is_org_member(target_org uuid)
  RETURNS boolean
@@ -434,7 +434,7 @@ AS $function$
     where m.organization_id = target_org
       and m.user_id = (select auth.uid())
   );
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.approve_task_handoff(p_task_id uuid, p_request_id uuid, p_organization_id uuid)
  RETURNS jsonb
@@ -492,7 +492,7 @@ begin
   );
   return v_result;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.assign_task_to_agent(p_task_id uuid, p_agent_id uuid, p_organization_id uuid, p_rationale text DEFAULT NULL::text)
  RETURNS jsonb
@@ -580,7 +580,7 @@ begin
     'max_concurrent_tasks', v_agent.max_concurrent_tasks
   );
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.create_organization(org_name text)
  RETURNS uuid
@@ -642,7 +642,7 @@ begin
 
   return new_org_id;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
@@ -659,7 +659,7 @@ begin
   on conflict (id) do nothing;
   return new;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
  RETURNS trigger
@@ -670,7 +670,7 @@ begin
   new.updated_at = now();
   return new;
 end;
-$function$
+$function$;
 
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON ai_agents FOR EACH ROW EXECUTE FUNCTION set_updated_at();
