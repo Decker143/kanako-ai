@@ -163,3 +163,10 @@ A read-only column comparison against Dev found 28 Dev columns versus 206 Produc
 There are also three shared-column default mismatches: `ai_agents.id`, `tasks.id`, and `organization_members.role` have Production defaults that are absent in Dev. No extra Dev-only columns were found in the compared public tables.
 
 Important scope note: this cloud-side introspection is a schema inventory, not yet a byte-for-byte `pg_dump` replacement. It does not by itself capture every database-level detail (for example all role grants/default privileges, extension-owned objects, auth/storage customizations, or exact migration file history). It is sufficient to continue a structured reconstruction and reconciliation without requiring the owner to install local tooling. Do not apply it to Dev until dependency order, complete DDL, permissions, RLS and fixture-preservation strategy have been reviewed.
+
+
+### Foreign-key dependency inventory
+
+The Production catalog contains 59 public-schema foreign-key constraints. The dependency graph includes the expected base objects (`organizations`, `organization_members`, `profiles`, `departments`, `ai_agents`, `tasks`, `agent_runs`) and downstream modules for learning/memory, approvals, workflows, conversations/messages, office meetings/commands, reports, and activity logs. Several constraints also reference Supabase-managed `auth.users`, so a Dev reconstruction must preserve the target project's Auth integration rather than attempting to recreate managed Auth tables.
+
+A safe creation sequence should begin with organization/profile/department foundations, then agents and tasks, then agent runs and task updates, followed by learning/memory, approvals, workflow, conversations/messages, office modules, reports, and activity logs. Cyclic or mutually dependent constraints should be added after their base tables exist. This is a planning order only; no DDL has been applied.
