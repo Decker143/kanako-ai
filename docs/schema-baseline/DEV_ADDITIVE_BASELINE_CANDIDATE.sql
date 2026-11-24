@@ -977,7 +977,7 @@ GRANT EXECUTE ON FUNCTION "public"."create_organization"(org_name text) TO "post
 GRANT EXECUTE ON FUNCTION "public"."create_organization"(org_name text) TO "service_role";
 GRANT EXECUTE ON FUNCTION "public"."handle_new_user"() TO "postgres" WITH GRANT OPTION;
 GRANT EXECUTE ON FUNCTION "public"."handle_new_user"() TO "service_role";
-GRANT EXECUTE ON FUNCTION "public"."set_updated_at"() TO "PUBLIC";
+GRANT EXECUTE ON FUNCTION "public"."set_updated_at"() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION "public"."set_updated_at"() TO "anon";
 GRANT EXECUTE ON FUNCTION "public"."set_updated_at"() TO "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."set_updated_at"() TO "postgres" WITH GRANT OPTION;
