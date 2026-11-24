@@ -64,8 +64,13 @@ export async function POST(request: Request) {
   });
   // Kanako may choose among the best-fit candidates, but cannot override
   // deterministic department/skill ranking by selecting a lower-fit employee.
-  const bestFitScore = rankedEmployees[0]?.fitScore;
-  const employees = rankedEmployees.filter(employee => employee.fitScore === bestFitScore);
+  const bestFit = rankedEmployees[0];
+  const employees = bestFit
+    ? rankedEmployees.filter(employee =>
+        employee.departmentMatch === bestFit.departmentMatch &&
+        employee.skillMatches === bestFit.skillMatches
+      )
+    : [];
 
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   if (!["queued", "blocked"].includes(task.status)) {
