@@ -48,11 +48,12 @@ export function rankAssignmentCandidates<T extends AssignmentCandidate>(
         ...candidate,
         departmentMatch,
         skillMatches,
-        fitScore: (departmentMatch ? 100 : 0) + skillMatches * 10,
+        fitScore: (departmentMatch ? 1000 : 0) + skillMatches * 10,
       };
     })
     .sort((a, b) =>
-      b.fitScore - a.fitScore ||
+      Number(b.departmentMatch) - Number(a.departmentMatch) ||
+      b.skillMatches - a.skillMatches ||
       b.remainingCapacity - a.remainingCapacity ||
       (b.recentSuccessRate ?? -1) - (a.recentSuccessRate ?? -1) ||
       a.id.localeCompare(b.id),
