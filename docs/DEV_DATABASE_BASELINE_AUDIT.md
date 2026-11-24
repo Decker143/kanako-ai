@@ -64,3 +64,21 @@ No Production migration, data change, or deployment is authorized by this audit.
 - Full structural diff of every table, index, constraint, trigger, function body, grant, and RLS policy.
 - Fresh-install replay of the complete migration chain in a clean Dev database.
 - End-to-end application tests against that full Dev schema.
+
+
+## Additional Production catalog inspection (read-only)
+
+A second catalog pass inspected the live schema metadata without reading or exporting customer/workspace records.
+
+- 21 public tables have RLS enabled.
+- Catalog counts: 81 public indexes, 115 public constraints, 72 public RLS policies, 10 non-internal triggers, and 8 functions across the `public` and `private` schemas.
+- The schema has dependencies on Supabase Auth (including foreign keys to `auth.users`) and a private authorization helper schema.
+- Private functions include `private.is_org_member(uuid)`, `private.has_org_role(uuid, text[])`, and the AI-task review-gate trigger function.
+- Public trigger helpers include `public.set_updated_at()` and `public.handle_new_user()`; organization creation and task assignment/handoff functions also exist.
+- The task completion trigger enforces explicit approval of AI-generated work before completion, and the private authorization helpers are referenced by RLS policies.
+
+These counts and object definitions establish a useful inventory, but they are **not a complete schema export**. The connector does not expose a schema-dump action in its available Supabase tools. A single large catalog response exceeded the response limit, so it was not treated as a complete, lossless source for generating migration SQL.
+
+## Current reconstruction decision
+
+Do not generate or apply a purportedly exact baseline migration from partial/truncated catalog output. The safe next input is a trusted schema-only export (for example, a Supabase CLI `db dump --schema-only` made from the linked Production project) or the original four migration files. Once available, it can be compared against the catalog inventory and checked-in migrations. The existing Dev fixture remains unchanged and available for its current isolated tests.
