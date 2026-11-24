@@ -747,44 +747,24 @@ export async function createProjectPlan(formData: FormData) {
 export async function approveProjectPlan(formData: FormData) {
   const { supabase, user, organizationId, role } = await context();
   if (!["owner", "admin"].includes(role)) redirect("/?view=reports&error=" + encodeURIComponent("Only workspace owners and admins can approve project plans."));
-  const planId = String(formData.get("plan_id") ?? "");
+  const planId = String(formData.get("plan_id") ?? "").trim();
   if (!planId) return;
-  const { data: plan } = await supabase.from("reports").select("id,title,content")
-    .eq("id", planId).eq("organization_id", organizationId).eq("report_type", "project_plan").maybeSingle();
-  if (!plan) redirect("/?view=reports&error=" + encodeURIComponent("Project plan not found."));
-  const content = plan.content as { summary?: string; plan_status?: string; tasks?: Array<{title:string;department_name?:string;priority?:string;description?:string;order?:number}>; created_task_ids?:string[] };
-  if (content.plan_status !== "pending_approval" || !Array.isArray(content.tasks) || !content.tasks.length) {
-    redirect("/?view=reports&error=" + encodeURIComponent("This plan is no longer awaiting approval or has no tasks."));
+
+  const { data, error } = await supabase.rpc("approve_project_plan", {
+    p_plan_id: planId,
+    p_organization_id: organizationId,
+  });
+
+  if (error || !data) {
+    const message = error?.message ?? "Project plan approval could not be completed.";
+    redirect("/?view=reports&error=" + encodeURIComponent(message));
   }
-  const { data: departments } = await supabase.from("departments").select("id,name").eq("organization_id", organizationId);
-  const departmentMap = new Map((departments ?? []).map(item => [item.name.toLowerCase(), item.id]));
-  const unknownDepartment = content.tasks.find(item => item.department_name && !departmentMap.has(item.department_name.toLowerCase()));
-  if (unknownDepartment) redirect("/?view=reports&error=" + encodeURIComponent("Unknown department: " + unknownDepartment.department_name + ". Edit the proposal and use an exact workspace department name."));
-  const { data: claimed, error: claimError } = await supabase.from("reports").update({
-    content: { ...content, plan_status: "processing", approved_at: new Date().toISOString(), approved_by: user.id },
-  }).eq("id", plan.id).eq("organization_id", organizationId).eq("content->>plan_status", "pending_approval").select("id").maybeSingle();
-  if (claimError || !claimed) redirect("/?view=reports&error=" + encodeURIComponent("This plan was already handled. Refresh the page."));
-  const rows = content.tasks.map(item => ({
-    organization_id: organizationId,
-    title: item.title,
-    description: item.description || null,
-    priority: ["low","medium","high","urgent"].includes(item.priority ?? "") ? item.priority : "medium",
-    department_id: item.department_name ? departmentMap.get(item.department_name.toLowerCase())! : null,
-    status: "queued",
-    created_by: user.id,
-    metadata: { project_plan_id: plan.id, project_plan_title: plan.title, plan_order: item.order ?? null },
-  }));
-  const { data: created, error } = await supabase.from("tasks").insert(rows).select("id");
-  if (error || !created || created.length !== rows.length) {
-    await supabase.from("reports").update({ content: { ...content, plan_status: "failed", error: error?.message ?? "Task creation was incomplete." } }).eq("id", plan.id).eq("organization_id", organizationId);
-    redirect("/?view=reports&error=" + encodeURIComponent("Plan approval started but task creation failed. The plan is marked for inspection; do not retry until checked."));
-  }
-  await supabase.from("reports").update({
-    content: { ...content, plan_status: "approved", approved_at: new Date().toISOString(), approved_by: user.id, created_task_ids: created.map(item => item.id) },
-  }).eq("id", plan.id).eq("organization_id", organizationId);
-  await log(supabase, organizationId, user.id, "ceo.project_plan_approved_and_tasks_created", "report", plan.id);
+
+  const result = data as { created_task_count?: number };
+  const createdCount = Number(result.created_task_count ?? 0);
+  await log(supabase, organizationId, user.id, "ceo.project_plan_approved_and_tasks_created", "report", planId);
   revalidatePath("/");
-  redirect("/?view=tasks&message=" + encodeURIComponent(created.length + " project tasks created. Assignments remain pending."));
+  redirect("/?view=tasks&message=" + encodeURIComponent(createdCount + " project tasks created. Assignments remain pending."));
 }
 
 export async function createReport(formData: FormData) {
