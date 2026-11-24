@@ -193,10 +193,27 @@ Future workforce capabilities:
 9. **Phase 8 — Integrations:** connectors, credential management, read/write scopes, approvals, end-to-end connector testing.
 10. **Phase 9 — Production readiness:** security review, performance, accessibility, backup/restore, incident response, E2E tests, owner-approved deployment.
 
+## Phase 1 verification update — 2026-11-24
+
+Verified in the Dev test workspace and controlled database transactions:
+- Nine departments are created for the test organization; Kanako is in CEO Office.
+- The eight named department manager profiles were created once; repeating the starter-team action did not create duplicates. All nine profiles remain Draft with no model configured and no execution permissions enabled.
+- Owner-authored project-plan proposal, owner approval, and atomic creation of two queued tasks passed in the UI.
+- Duplicate approval, unknown-department rejection, and all-or-nothing rollback passed in database tests.
+- The task assignee directory returned all nine employee profiles. Assigning the Operations task to Riley Reid persisted in Dev and appeared after a page refresh.
+- Online workspace context is shared through the authenticated membership/cookie resolver used by the main dashboard, server actions, and Virtual Office. Workspace switching is membership-validated and appears when an account has multiple workspaces.
+- Offline local messages, drafts, snapshots, and run records are now namespaced by organization in IndexedDB. The Preview build passed for this change. Cross-workspace offline switching and offline sync idempotency still require end-to-end testing with more than one authorized workspace.
+
+Safety status: all testing and deployment work above used Dev/Preview only. No Production database or environment changes were made. AI execution and model-provider calls remain disabled.
+
 ## Immediate next steps
-1. Verify the nine-department migration and new-organization function in a disposable test workspace or controlled test transaction.
-2. End-to-end test project-plan proposal, approval, task creation, duplicate-approval protection, and invalid department handling in a real workspace.
-2. [Partially complete] Add a verified active-workspace selector and shared organization context across the dashboard, server actions, chat, CEO delegation, AI execution, and workflows. Still verify offline behavior across workspace switching.
+1. [Verified] Nine-department migration and organization-creation behavior passed in a controlled transaction and a real Dev test workspace.
+2. [Verified] Project-plan proposal, approval, atomic task creation, duplicate-approval protection, invalid department rejection, and transaction rollback passed. Task assignment to Riley Reid persisted after refresh.
+3. [Partially complete] Online shared organization context is implemented and code-reviewed across dashboard, server actions, and Virtual Office. Offline IndexedDB records are now organization-scoped; cross-workspace offline switching and sync behavior remain untested.
+4. [Foundation implemented] CEO Command Center shows workforce readiness, overdue/blocked/unassigned work, failed workflow runs, and executive alerts. Continue with department health, workload balancing, run outcomes, and pending approvals.
+5. [Implemented foundation] Employee profiles now store skill tags, maximum concurrent tasks, and availability. CEO delegation ranks eligible employees by skill fit, department, capacity, and recent outcomes; an atomic RLS-respecting database function rechecks capacity before assignment. Next: fuller performance history and load-balancing tests.
+6. Add robust automated tests for task lifecycle, approvals, organization isolation, offline sync idempotency, and learning permissions.
+7. Only after those tests, continue with workflow triggers and advanced research.
 3. [Foundation implemented] CEO Command Center shows workforce readiness, overdue/blocked/unassigned work, failed workflow runs, and executive alerts. Continue with department health, workload balancing, run outcomes, and pending approvals.
 4. [Implemented foundation] Employee profiles now store skill tags, maximum concurrent tasks, and availability. CEO delegation ranks eligible employees by skill fit, department, capacity, and recent outcomes; an atomic RLS-respecting database function rechecks capacity before assignment. Next: fuller performance history and load-balancing tests.
 5. Add robust automated tests for task lifecycle, approvals, organization isolation, offline sync idempotency, and learning permissions.
