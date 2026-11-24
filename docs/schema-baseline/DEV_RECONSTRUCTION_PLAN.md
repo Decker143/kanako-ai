@@ -1,52 +1,58 @@
 # Dev schema reconstruction plan
 
-Generated 2026-11-24 after read-only comparison of Production and the existing Dev test project.
+Updated 2026-11-24 after applying and verifying the additive Dev baseline.
 
 ## Current state
 
-| Catalog item | Production | Existing Dev |
+| Catalog item | Production | Dev after baseline |
 |---|---:|---:|
-| Public tables | 21 | 4 |
-| Public columns | 206 | 28 |
-| Constraints | 115 | 3 |
-| Indexes | 81 | 3 |
-| RLS policies | 72 | 7 |
-| Non-internal public triggers | 10 | 0 |
-| Public/private functions | 8 | 1 |
-| Sequences in public/private | 0 | 0 |
+| Public tables | 21 | 21 |
+| Public columns | 206 | 206 |
+| Public constraints | 115 | 115 |
+| Public foreign keys | 59 | 59 |
+| Foreign keys marked NOT VALID in Dev | 0 | 14 |
+| Public indexes | 81 | 81 |
+| RLS policies | 72 | 79 (72 Production + 7 preserved tests) |
+| Non-internal public triggers | 10 | 10 |
+| Auth users trigger | 1 | 1 |
+| Public/private functions | 8 | 9 (8 Production + Dev-only reservation function) |
 
-The four Dev tables are `organization_members`, `ai_agents`, `tasks`, and `agent_runs`. The `organization_members`, `ai_agents`, and `tasks` tables are reduced test fixtures; `agent_runs` has the same 12 column definitions as Production. Existing Dev has seven `test_*` policies, three indexes, three constraints, and one function. Preserve these test objects and their rows.
+Dev project: `kanako-ai-dev-test` (`pauzanqmxqhxczefabth`), Supabase Free, PostgreSQL 17.
 
-## Static review completed
+## Applied baseline
 
-The live Production catalog was compared with the generated schema reference:
-- All 206 column definitions matched (type, nullability, and default).
-- All 115 constraint names/definitions matched.
-- All 58 standalone index definitions matched.
-- All 72 RLS policy expressions matched.
-- All 8 function definitions and 10 public trigger definitions matched. Production also has a separate custom `auth.users.on_auth_user_created` trigger calling `public.handle_new_user()`; Dev lacks it, so the candidate restores it explicitly.
-- All 78 table-grant sets and 21 routine-grant entries matched.
-- All 21 public tables have RLS enabled.
-- Schema ACLs and default privileges were reviewed separately. The generated reference omits required function REVOKEs, so the candidate adds explicit revokes to reproduce the live Production routine ACLs. PUBLIC execution is retained only for `public.set_updated_at()`.
+The one-shot candidate `docs/schema-baseline/DEV_ADDITIVE_BASELINE_CANDIDATE.sql` was applied once to Dev. Supabase migration history records:
 
-## Additive candidate prepared
+- Version: `20261124065345`
+- Name: `dev_additive_schema_baseline_20261124`
 
-`docs/schema-baseline/DEV_ADDITIVE_BASELINE_CANDIDATE.sql` is a one-shot review artifact, deliberately outside `supabase/migrations`. It contains:
-- 17 missing tables and 21 missing columns.
-- Three shared-column defaults restored.
-- 112 missing constraints, including 14 existing-fixture foreign keys marked `NOT VALID`.
-- 58 standalone indexes, 8 functions, 10 public triggers plus 1 Auth trigger, 72 Production policies, 78 table grants, 21 routine grants, and 7 function revokes.
-- Preservation of the four existing fixture tables, all current fixture rows, seven test policies, current grants, and the Dev-only reservation function.
+The successful application was followed by read-only catalog verification. All 21 public tables have RLS enabled. The 17 missing tables, 21 missing columns, 112 missing constraints, 58 standalone indexes, eight Production functions, ten public triggers, one Auth trigger, 72 Production policies, and exact table/routine grants are now present.
 
-## Remaining pre-application decisions
+The candidate was corrected before successful application to create all 20 missing primary/unique keys before foreign keys, and to use PostgreSQL's unquoted `PUBLIC` pseudo-role in routine ACL statements. Two earlier attempts failed and rolled back completely; no partial objects or migration-history entries remained from those attempts.
 
-- `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` remain nullable in the candidate because they are NOT NULL in Production but have no defaults, while the populated Dev fixtures have no values. Backfilling them changes fixture data.
-- The 14 foreign keys on populated fixture tables are `NOT VALID` to preserve known orphaned references. They still enforce new writes; existing rows remain unvalidated until a later approved repair/validation.
-- Dev has zero Auth users. The Phase 1 organization-seed E2E test requires a synthetic Dev Auth identity, which must be created only in an explicitly approved controlled test.
-- The Production migration ledger and repository migration versions/names do not fully align. The candidate is based on the verified final live catalog, not migration replay. Do not run `db push`, reset, or replay migrations to reconcile the ledger.
+## Preserved Dev fixtures and compatibility exceptions
 
-**Recommendation:** Preserve the existing fixtures and use the candidate's staged compatibility treatment, but do not apply it until the owner explicitly accepts the three nullable columns and 14 NOT VALID foreign keys. Production remains read-only. No paid resources, new Supabase project/branch, deployment, or merge is required.
+- Existing four fixture tables and their rows remain: `organization_members` (2), `ai_agents` (1), `tasks` (5), and `agent_runs` (2).
+- Seven `test_*` RLS policies, existing grants, and Dev-only `public.reserve_agent_task_run(...)` remain.
+- Fourteen foreign keys on populated fixture tables are `NOT VALID` to preserve existing orphan references while enforcing new writes.
+- `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` remain nullable until a separately reviewed fixture repair can safely populate them.
+- Dev has zero Auth users. The Phase 1 E2E test needs a synthetic Dev Auth identity, which has not been created and requires separate explicit approval.
 
-## No changes applied
+## Remaining roadmap work
 
-This work performed read-only catalog inspection and documentation/candidate writes to the audit branch only. No SQL DDL, migration, data write, reset, branch merge, deployment, or billing change was performed.
+1. Obtain separate approval for a synthetic Dev Auth identity.
+2. Create only synthetic Dev test data and verify organization creation seeds exactly nine departments and draft Kanako in CEO Office.
+3. E2E test the owner-authored project-plan proposal, approval, task creation, duplicate-approval protection, and invalid-department handling.
+4. Verify shared active-workspace context, workforce readiness, workload, and task assignment.
+5. Keep all Production changes, deployment, and PR merge decisions separate and explicitly approved.
+
+## Migration ledger caution
+
+The Production migration ledger and repository migration versions/names do not fully align. The Dev baseline is based on the verified final live Production catalog, not a replay of the Production migration chain. Do not run `supabase db push`, reset, or bulk replay/reconciliation until every history entry has an explicitly reviewed mapping.
+
+## Free-plan and production guardrails
+
+- Supabase organization remains on the Free plan; Vercel remains Hobby.
+- No new project, Supabase branch, paid integration, model call, or billing change was needed.
+- Production database remains unchanged; no Production data was copied.
+- No Vercel environment, Preview deployment, Production deployment, or GitHub PR merge was changed.
