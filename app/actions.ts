@@ -45,11 +45,11 @@ export async function scanTaskRisks() {
     const latestUpdate = taskUpdates[0];
     const latestRun = (runs ?? []).find(run => run.task_id === task.id);
     const department = (departments ?? []).find(item => item.id === task.department_id)?.name ?? "Unassigned";
-    if (latestUpdate?.event_type === "blocker") alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"reported_blocker",detail:latestUpdate.message,recommended_action:"Review the blocker and decide whether to provide resources, change scope, or approve a handoff.",department });
-    if (task.due_at && new Date(task.due_at).getTime() < now) alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"overdue",detail:"Due date passed on " + new Date(task.due_at).toLocaleString("en"),recommended_action:"Review the deadline and update the delivery plan.",department });
+    if (latestUpdate?.event_type === "blocker") alerts.push({ task_id:task.id,title:task.title ?? "Untitled task",priority:task.priority,type:"reported_blocker",detail:latestUpdate.message,recommended_action:"Review the blocker and decide whether to provide resources, change scope, or approve a handoff.",department });
+    if (task.due_at && new Date(task.due_at).getTime() < now) alerts.push({ task_id:task.id,title:task.title ?? "Untitled task",priority:task.priority,type:"overdue",detail:"Due date passed on " + new Date(task.due_at).toLocaleString("en"),recommended_action:"Review the deadline and update the delivery plan.",department });
     const lastActivity = Math.max(new Date(task.updated_at).getTime(), latestUpdate ? new Date(latestUpdate.created_at).getTime() : 0, latestRun ? new Date(latestRun.created_at).getTime() : 0);
-    if (["queued","in_progress","blocked"].includes(task.status) && now - lastActivity > 72*60*60*1000) alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"stale_72h",detail:"No task, progress-update, or AI-run activity for more than 72 hours.",recommended_action:"Ask the assigned employee for a status update or reassign after checking capacity.",department });
-    if (latestRun?.status === "failed") alerts.push({ task_id:task.id,title:task.title,priority:task.priority,type:"latest_ai_run_failed",detail:latestRun.error || "Latest AI execution failed.",recommended_action:"Inspect the failed run before retrying or changing the assigned model.",department });
+    if (["queued","in_progress","blocked"].includes(task.status) && now - lastActivity > 72*60*60*1000) alerts.push({ task_id:task.id,title:task.title ?? "Untitled task",priority:task.priority,type:"stale_72h",detail:"No task, progress-update, or AI-run activity for more than 72 hours.",recommended_action:"Ask the assigned employee for a status update or reassign after checking capacity.",department });
+    if (latestRun?.status === "failed") alerts.push({ task_id:task.id,title:task.title ?? "Untitled task",priority:task.priority,type:"latest_ai_run_failed",detail:latestRun.error || "Latest AI execution failed.",recommended_action:"Inspect the failed run before retrying or changing the assigned model.",department });
   }
   const rank: Record<string,number> = { urgent:0, high:1, medium:2, low:3 };
   alerts.sort((x,y)=>(rank[x.priority]??4)-(rank[y.priority]??4) || x.type.localeCompare(y.type));
@@ -251,7 +251,7 @@ export async function createStarterTeam() {
     const department = (departments ?? []).find((item) => item.name.toLowerCase() === profile.department.toLowerCase());
     if (!department) return [];
     const alreadyExists = (existing ?? []).some((agent) =>
-      agent.department_id === department.id && agent.job_title.toLowerCase() === profile.title.toLowerCase()
+      agent.department_id === department.id && (agent.job_title ?? "").toLowerCase() === profile.title.toLowerCase()
     );
     if (alreadyExists) return [];
     return [{
