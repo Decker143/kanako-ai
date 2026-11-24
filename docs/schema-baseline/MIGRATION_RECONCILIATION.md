@@ -6,7 +6,7 @@ Generated 2026-11-24 from the live Production migration history and the `feature
 
 - Production history entries: 34
 - Repository SQL migration files: 30
-- Mapping counts: {"missing_repo_file":6,"same_name_different_version":25,"exact_version_and_name":3}
+- Mapping counts: 3 exact version+name matches, 25 same descriptive name with version mismatch, 2 renamed candidates requiring SQL semantic review, and 4 genuinely missing repository files.
 
 | Production version | Production migration name | Candidate repository file | Match status |
 |---|---|---|---|
