@@ -130,3 +130,16 @@ A fresh read-only catalog count on 2026-11-24 confirms the Dev project currently
 - `20261124025054_test_agent_runs_select_policy`
 
 The same read-only query returned the following Production counts: 21 public tables, 72 public RLS policies, 81 public indexes, 258 public constraints, 10 non-internal triggers, and 8 functions. This confirms the Dev project is not yet a usable full-schema app environment. The existing Dev fixture rows and tests were not modified.
+
+
+## Repository-wide baseline recovery check
+
+The migration directory was checked on all three available project branches: `main`, `feature/task-center-register`, and `feature/github-code-execution`. None contains the four missing Production baseline SQL files. A GitHub file-path commit-history check also returned no historical commits for those exact four paths. The GitHub-execution branch contains one additional migration, `202611240001_atomic_agent_run_reservation.sql`, but it is not part of the current Preview branch and does not recover the missing application baseline.
+
+Therefore, the four baseline SQL files cannot be recovered from the currently inspected branches or their exact-path file history. A trusted schema-only export from Production (or a separately backed-up original source) remains necessary.
+
+## Preview AI containment — owner-approved action
+
+On 2026-11-24, the owner approved changing the Vercel environment variable `KANAKO_AI_EXECUTION_ENABLED` to `false` for the **Preview target only**. The variable was updated and then read back successfully with value `false` and target `preview`. Production and Development targets were not changed.
+
+This is an environment-variable configuration update; it does not automatically modify an already-created deployment's bundled/runtime environment. A new Preview deployment may be required for the setting to take effect. No redeployment was triggered. Until a new deployment is explicitly approved and verified, continue treating the existing Preview deployment as potentially running with its previous environment value. Regardless, Preview still points to the Production Supabase project and must not be used for write operations.
