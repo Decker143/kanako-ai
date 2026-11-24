@@ -37,6 +37,19 @@ All seven Dev test policies are permissive and target `authenticated`. Their pre
 
 No additional row access beyond the corresponding Production policy set was identified from these seven fixture policies. Preserve all seven unchanged. This is a static predicate comparison, not a substitute for authenticated E2E tests.
 
+## Generated schema-reference cross-check
+
+The schema-only reconstruction reference was cross-checked against live catalog totals:
+- 21 `CREATE TABLE` statements.
+- 115 `ADD CONSTRAINT` statements.
+- 58 standalone indexes (53 ordinary plus 5 unique), alongside 23 indexes backing primary-key/unique constraints; 81 total live indexes.
+- 21 RLS-enable statements and 72 `CREATE POLICY` statements.
+- 8 function definitions and 10 trigger definitions.
+- 78 table-grant statements and 21 routine EXECUTE-grant statements.
+- One `CREATE SCHEMA private` statement.
+
+This reference is a generated reconstruction aid, not a verified `pg_dump` replacement. It does not fully reproduce managed Supabase schemas/platform configuration. Schema ACLs and default privileges require the separate live-catalog review above.
+
 ## Security and grant review caution
 
 Table privileges and RLS policies are separate layers. A grant allows a role to attempt a statement; RLS determines which rows are visible or writable. Do not blindly copy grants from the reference, disable RLS, or use the broad Dev fixture ACL as a template for newly added tables.
