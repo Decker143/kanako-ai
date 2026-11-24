@@ -7,7 +7,7 @@
 
 ## Executive status
 
-<badge>Dev baseline applied and verified</badge>
+**Status: Dev baseline applied and verified.**
 
 - Production `kanako-ai` and Dev `kanako-ai-dev-test` are both `ACTIVE_HEALTHY`, PostgreSQL 17, Singapore region.
 - Supabase organization remains on Free; Vercel remains Hobby. No paid project, branch, add-on, or integration was created.
