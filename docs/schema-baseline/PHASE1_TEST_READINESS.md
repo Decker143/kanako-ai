@@ -31,7 +31,8 @@ The additive candidate is prepared at `docs/schema-baseline/DEV_ADDITIVE_BASELIN
 It preserves existing fixture rows by:
 - adding `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` as nullable for now (Production requires NOT NULL, but the existing fixtures have no values and there are no defaults);
 - adding 14 foreign keys on populated fixture tables as `NOT VALID`, so existing orphan references do not block reconstruction while new writes are still checked;
-- preserving all seven Dev test policies, all four tables, their current grants, and the Dev-only reservation function.
+- preserving all seven Dev test policies, all four tables, their current grants, and the Dev-only reservation function;
+- restoring Production's `auth.users.on_auth_user_created` trigger so a newly created Dev Auth user can receive its `public.profiles` row.
 
 **Do not apply the candidate until the owner explicitly accepts these compatibility exceptions.** Exact Production NOT NULL/FK parity will require a separately approved fixture repair and later constraint validation.
 
