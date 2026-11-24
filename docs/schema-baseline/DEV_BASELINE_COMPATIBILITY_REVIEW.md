@@ -26,6 +26,17 @@
 - The catalog query of default privileges returned matching entries for the inspected managed schemas in both projects. Do not replace or normalize managed-schema default ACLs.
 - The Production routine inventory includes eight functions in `public`/`private`. The two private SECURITY DEFINER helper functions are executable by `authenticated`, not `anon`; the private trigger function is not executable by API roles. `create_organization(text)` is SECURITY DEFINER, has an empty search_path, and is executable by `authenticated` and `service_role`, not `anon`. `handle_new_user()` is executable by `service_role` only. `set_updated_at()` is not SECURITY DEFINER and retains PUBLIC execution. These grants and function attributes must be recreated exactly, not broadened.
 
+## Dev fixture RLS compatibility review
+
+All seven Dev test policies are permissive and target `authenticated`. Their predicates were compared with the corresponding Production policy/helper logic:
+- The Dev run-insert policy checks both creator identity and owner/admin membership; Production uses `private.has_org_role` plus the same creator check.
+- The Dev run-select, agent-read, and task-read policies check organization membership directly; Production's `private.is_org_member` helper performs the same membership lookup.
+- The Dev agent-update policy checks owner/admin membership; Production's `private.has_org_role` performs the same lookup.
+- The Dev task-update policy checks organization membership; Production's task-update policy uses `private.is_org_member`.
+- The Dev member-read policy only permits a user to see their own membership row; Production additionally permits organization members to see rows in their organization. The Dev predicate is therefore narrower.
+
+No additional row access beyond the corresponding Production policy set was identified from these seven fixture policies. Preserve all seven unchanged. This is a static predicate comparison, not a substitute for authenticated E2E tests.
+
 ## Security and grant review caution
 
 Table privileges and RLS policies are separate layers. A grant allows a role to attempt a statement; RLS determines which rows are visible or writable. Do not blindly copy grants from the reference, disable RLS, or use the broad Dev fixture ACL as a template for newly added tables.
