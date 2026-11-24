@@ -13,6 +13,9 @@ declare
   v_agent uuid;
   v_other_agent uuid;
   v_draft_agent uuid;
+  v_capacity_agent uuid;
+  v_capacity_task uuid;
+  v_capacity_overflow_task uuid;
   v_org2_agent uuid;
   v_task uuid;
   v_plan_valid uuid;
@@ -49,6 +52,7 @@ declare
   v_draft_agent_rejected boolean := false;
   v_assignment_mismatch_rejected boolean := false;
   v_stale_task_rejected boolean := false;
+  v_capacity_rejected boolean := false;
 begin
   select o.id, o.created_by
     into v_org, v_user
@@ -140,6 +144,23 @@ begin
   values (v_org, v_agent, v_task, 'succeeded', '{}'::jsonb, '{"text":"regression output"}'::jsonb, v_user)
   returning id into v_run;
 
+  -- Capacity boundary: an employee with one occupied slot must not receive another task.
+  insert into public.ai_agents(
+    organization_id, name, job_title, status, availability_status, model_name,
+    capabilities, max_concurrent_tasks, created_by
+  ) values (
+    v_org, 'Phase 1 Capacity Regression Agent', 'Regression Test', 'active', 'available',
+    'local-test-only', '["task_execution"]'::jsonb, 1, v_user
+  ) returning id into v_capacity_agent;
+
+  insert into public.tasks(organization_id, title, status, priority, assigned_agent_id, created_by)
+  values (v_org, 'Capacity slot already occupied', 'queued', 'low', v_capacity_agent, v_user)
+  returning id into v_capacity_task;
+
+  insert into public.tasks(organization_id, title, status, priority, created_by)
+  values (v_org, 'Capacity boundary assignment', 'queued', 'low', v_user)
+  returning id into v_capacity_overflow_task;
+
   -- Exercise the real authenticated RLS policies and auth.uid().
   perform set_config('request.jwt.claim.sub', v_user::text, true);
   execute 'set local role authenticated';
@@ -167,6 +188,25 @@ begin
   end;
   if not v_denied then raise exception 'FAIL project-plan authorization: non-member was not denied'; end if;
   perform set_config('request.jwt.claim.sub', v_user::text, true);
+
+  -- Capacity-aware assignment must reject work beyond the employee's configured limit.
+  begin
+    perform public.assign_task_to_agent(
+      v_capacity_overflow_task, v_capacity_agent, v_org, 'Phase 1 capacity boundary regression'
+    );
+  exception when others then
+    get stacked diagnostics v_plan_code = returned_sqlstate;
+    v_capacity_rejected := v_plan_code = 'P0001';
+  end;
+  if not v_capacity_rejected then
+    raise exception 'FAIL capacity assignment: employee accepted work beyond max_concurrent_tasks';
+  end if;
+  if exists (
+    select 1 from public.tasks
+     where id = v_capacity_overflow_task and assigned_agent_id = v_capacity_agent
+  ) then
+    raise exception 'FAIL capacity assignment: overflow task was persisted as assigned';
+  end if;
 
   -- A plan from another workspace cannot be approved in this workspace.
   v_plan_code := null;
@@ -404,6 +444,7 @@ begin
   end if;
 
   raise notice 'PASS: organization and learning read isolation';
+  raise notice 'PASS: capacity-aware assignment rejects work beyond max_concurrent_tasks';
   raise notice 'PASS: project-plan authorization, cross-org protection, validation, duplicate guard, and rollback';
   raise notice 'PASS: AI task review gate and approved completion';
   raise notice 'PASS: learning pending gate, owner approval, and non-member write protection';
