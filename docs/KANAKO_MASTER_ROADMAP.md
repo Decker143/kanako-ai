@@ -203,6 +203,7 @@ Verified in the Dev test workspace and controlled database transactions:
 - The task assignee directory returned all nine employee profiles. Assigning the Operations task to Riley Reid persisted in Dev and appeared after a page refresh.
 - Online workspace context is shared through the authenticated membership/cookie resolver used by the main dashboard, server actions, and Virtual Office. Workspace switching is membership-validated and appears when an account has multiple workspaces.
 - Offline local messages, drafts, snapshots, and run records are now namespaced by organization in IndexedDB. The Preview build passed for this change. Cross-workspace offline switching and offline sync idempotency still require end-to-end testing with more than one authorized workspace.
+- Offline AI result synchronization now uses a Dev-only atomic database function: the run insert, task transition to `in_review`, and activity-log entry commit or roll back together. Retries are serialized by organization and local result ID; repeated successful sync returns the existing run. The sync endpoint delegates to this function, and offline snapshots now include only active employees with both execution capabilities. A rollback-only Dev transaction test verified first sync plus duplicate retry. Browser-level sync, cross-workspace switching, and failure-path tests remain outstanding.
 
 Safety status: all testing and deployment work above used Dev/Preview only. No Production database or environment changes were made. AI execution and model-provider calls remain disabled.
 
