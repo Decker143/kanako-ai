@@ -21,6 +21,9 @@
 --     are explicitly accepted and the full diff has been reviewed.
 --
 -- This file is deliberately outside supabase/migrations and does not alter migration history.
+-- ONE-SHOT SCRIPT: ADD CONSTRAINT, CREATE TRIGGER, and CREATE POLICY statements are not
+-- idempotent. Do not rerun after a partial or successful execution; inspect the live catalog
+-- and prepare a reconciled follow-up instead.
 
 BEGIN;
 
