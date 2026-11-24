@@ -82,3 +82,10 @@ These counts and object definitions establish a useful inventory, but they are *
 ## Current reconstruction decision
 
 Do not generate or apply a purportedly exact baseline migration from partial/truncated catalog output. The safe next input is a trusted schema-only export (for example, a Supabase CLI `db dump --schema-only` made from the linked Production project) or the original four migration files. Once available, it can be compared against the catalog inventory and checked-in migrations. The existing Dev fixture remains unchanged and available for its current isolated tests.
+
+
+## Trusted export path
+
+Supabase's official CLI backup guidance documents `supabase db dump --db-url [CONNECTION_STRING] -f schema.sql` as the schema dump command (without the `--data-only` option). For this recovery, export **schema only**; do not export `data.sql`, and do not share the database password or full connection string in chat or commit it to GitHub.
+
+The linked Production connection string is available in the Supabase Dashboard under **Connect**. Use it locally in a terminal after installing the Supabase CLI and the required PostgreSQL tooling. The resulting schema file should be reviewed locally for secrets or environment-specific statements before it is uploaded to a private working location for analysis. This command only reads the source database; it does not apply migrations or change Production.
