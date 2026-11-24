@@ -342,7 +342,7 @@ export async function updateAgentCapabilities(formData: FormData) {
   }
   const id = String(formData.get("agent_id") ?? "");
   const requested = formData.getAll("capabilities").map(value => String(value));
-  const allowed = new Set(["task_execution", "knowledge_read", "department_read", "internet_research", "local_execution"]);
+  const allowed = new Set(["task_execution", "knowledge_read", "department_read", "internet_research", "local_execution", "github_code_execution"]);
   const capabilities = [...new Set(requested)].filter(value => allowed.has(value));
   if (!id) return;
   const { data: agent } = await supabase.from("ai_agents").select("id").eq("id", id)
