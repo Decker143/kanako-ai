@@ -71,7 +71,7 @@ No Production migration, data change, or deployment is authorized by this audit.
 A second catalog pass inspected the live schema metadata without reading or exporting customer/workspace records.
 
 - 21 public tables have RLS enabled.
-- Catalog counts: 81 public indexes, 115 public constraints, 72 public RLS policies, 10 non-internal triggers, and 8 functions across the `public` and `private` schemas.
+- Catalog counts: 81 public indexes, 258 public constraints, 72 public RLS policies, 10 non-internal triggers, and 8 functions across the `public` and `private` schemas. The 258 count is the current direct `information_schema.table_constraints` result; an earlier 115 figure in this document was incorrect and is superseded.
 - The schema has dependencies on Supabase Auth (including foreign keys to `auth.users`) and a private authorization helper schema.
 - Private functions include `private.is_org_member(uuid)`, `private.has_org_role(uuid, text[])`, and the AI-task review-gate trigger function.
 - Public trigger helpers include `public.set_updated_at()` and `public.handle_new_user()`; organization creation and task assignment/handoff functions also exist.
@@ -118,3 +118,15 @@ Until Preview is isolated:
 - Do not use Preview for task creation/editing, chat, approvals, workflow runs, or other write operations.
 - Do not simply switch Preview to the current Dev project yet; its four-table fixture schema is incomplete for the app.
 - The recommended containment is to disable Preview AI execution and then point Preview to a fully reconstructed, tested Dev database. Vercel environment changes require explicit owner approval.
+
+
+## Dev catalog comparison — read-only verification
+
+A fresh read-only catalog count on 2026-11-24 confirms the Dev project currently contains only 4 public tables, 7 public RLS policies, 3 public indexes, 22 public constraints, 0 non-internal triggers, and 1 function. All 4 public tables have RLS enabled. The 4 Dev migration-history entries are the isolated fixture/test migrations:
+
+- `20261124024945_test_fixture_schema`
+- `20261124025000_atomic_agent_run_reservation`
+- `20261124025044_test_agent_update_policy`
+- `20261124025054_test_agent_runs_select_policy`
+
+The same read-only query returned the following Production counts: 21 public tables, 72 public RLS policies, 81 public indexes, 258 public constraints, 10 non-internal triggers, and 8 functions. This confirms the Dev project is not yet a usable full-schema app environment. The existing Dev fixture rows and tests were not modified.
