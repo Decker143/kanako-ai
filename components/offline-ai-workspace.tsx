@@ -185,8 +185,8 @@ export function OfflineAIWorkspace() {
       const next: OfflineSnapshot = { ...data as Omit<OfflineSnapshot, "id">, id: "active" };
       await saveRecord("snapshots", next);
       setSnapshot(next);
-      setSelectedAgentId(current => current || next.agents[0]?.id || "");
-      setSelectedTaskId(current => current || next.tasks[0]?.id || "");
+      setSelectedAgentId(current => next.agents.some(agent => agent.id === current) ? current : next.agents[0]?.id || "");
+      setSelectedTaskId(current => next.tasks.some(task => task.id === current) ? current : next.tasks[0]?.id || "");
       setSyncMessage("Offline snapshot refreshed successfully: " + next.agents.length + " eligible AI employee(s), " + next.tasks.length + " queued or blocked task(s).");
     } catch (error) {
       setSyncMessage(error instanceof Error ? error.message : "Could not refresh the offline employee and task snapshot. The last saved snapshot remains available.");
@@ -197,44 +197,68 @@ export function OfflineAIWorkspace() {
 
   useEffect(() => {
     let disposed = false;
-    const update = () => {
-      setOnline(navigator.onLine);
-      if (navigator.onLine) {
-        try {
-          const orgId = localStorage.getItem("kanako-ai-active-org") ?? "";
-          if (orgId) void refreshSnapshot(orgId);
-        } catch {
-          // The offline workspace remains available without cloud context.
-        }
-      }
-    };
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
+    let currentOrganizationId: string | null = null;
 
-    let activeOrganizationId = "";
-    try { activeOrganizationId = localStorage.getItem("kanako-ai-active-org") ?? ""; } catch { activeOrganizationId = ""; }
-    // Hydrate the active workspace from browser storage on first mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOrganizationId(activeOrganizationId);
-    const storageOrganizationId = activeOrganizationId || "device-local";
-    Promise.all([
-      readRecords<LocalMessage>("messages", storageOrganizationId),
-      readRecords<LocalTask>("tasks", storageOrganizationId),
-      readRecords<OfflineSnapshot>("snapshots", storageOrganizationId),
-      readRecords<LocalRun>("runs", storageOrganizationId),
-    ]).then(([savedMessages, savedTasks, savedSnapshots, savedRuns]) => {
-      if (disposed) return;
-      setMessages(savedMessages.sort((a,b) => a.createdAt.localeCompare(b.createdAt)));
-      setTasks(savedTasks.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
-      setSnapshot(savedSnapshots.find(item => item.id === "active") ?? null);
-      setRuns(savedRuns.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
-    }).catch(() => setSyncMessage("Local storage is unavailable in this browser."));
+    const loadWorkspace = (nextOrganizationId: string) => {
+      if (currentOrganizationId === nextOrganizationId) return;
+      currentOrganizationId = nextOrganizationId;
+      // Clear the previous workspace immediately so its cached data is never shown
+      // while the newly selected workspace is loading.
+      setOrganizationId(nextOrganizationId);
+      setSnapshot(null);
+      setMessages([]);
+      setTasks([]);
+      setRuns([]);
+      setSelectedAgentId("");
+      setSelectedTaskId("");
+      setRunOutput("");
+      setSyncMessage(nextOrganizationId ? "Loading this workspace's device-local records…" : "No active cloud workspace selected.");
+
+      const storageOrganizationId = nextOrganizationId || "device-local";
+      Promise.all([
+        readRecords<LocalMessage>("messages", storageOrganizationId),
+        readRecords<LocalTask>("tasks", storageOrganizationId),
+        readRecords<OfflineSnapshot>("snapshots", storageOrganizationId),
+        readRecords<LocalRun>("runs", storageOrganizationId),
+      ]).then(([savedMessages, savedTasks, savedSnapshots, savedRuns]) => {
+        if (disposed || currentOrganizationId !== nextOrganizationId) return;
+        setMessages(savedMessages.sort((a,b) => a.createdAt.localeCompare(b.createdAt)));
+        setTasks(savedTasks.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
+        setSnapshot(savedSnapshots.find(item => item.id === "active") ?? null);
+        setRuns(savedRuns.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
+        if (navigator.onLine && nextOrganizationId) void refreshSnapshot(nextOrganizationId);
+      }).catch(() => {
+        if (!disposed && currentOrganizationId === nextOrganizationId) {
+          setSyncMessage("Local storage is unavailable in this browser.");
+        }
+      });
+    };
+
+    const readActiveWorkspace = () => {
+      let nextOrganizationId = "";
+      try { nextOrganizationId = localStorage.getItem("kanako-ai-active-org") ?? ""; } catch {
+        // Keep the device-local workspace available if browser storage is blocked.
+      }
+      loadWorkspace(nextOrganizationId);
+    };
+    const updateConnectivity = () => setOnline(navigator.onLine);
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "kanako-ai-active-org" || event.key === null) readActiveWorkspace();
+    };
+
+    updateConnectivity();
+    readActiveWorkspace();
+    window.addEventListener("online", updateConnectivity);
+    window.addEventListener("offline", updateConnectivity);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", readActiveWorkspace);
 
     return () => {
       disposed = true;
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
+      window.removeEventListener("online", updateConnectivity);
+      window.removeEventListener("offline", updateConnectivity);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", readActiveWorkspace);
     };
   }, []);
 
