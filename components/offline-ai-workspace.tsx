@@ -214,6 +214,8 @@ export function OfflineAIWorkspace() {
 
     let activeOrganizationId = "";
     try { activeOrganizationId = localStorage.getItem("kanako-ai-active-org") ?? ""; } catch { activeOrganizationId = ""; }
+    // Hydrate the active workspace from browser storage on first mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrganizationId(activeOrganizationId);
     const storageOrganizationId = activeOrganizationId || "device-local";
     Promise.all([
