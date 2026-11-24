@@ -5,8 +5,6 @@ const OWNER = "Decker143";
 const REPOSITORY = "kanako-ai";
 const DEFAULT_BASE_BRANCH = "feature/task-center-register";
 
-type GitHubFile = { path: string; sha: string; content?: string };
-
 function requiredEnv(name: string) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing GitHub App configuration: ${name}`);
@@ -96,8 +94,7 @@ function validateBranch(branch: string, write = false) {
 function validatePath(path: string) {
   if (typeof path !== "string" || path.length < 1 || path.length > 240 || path.startsWith("/") ||
       path.split("/").some(part => !part || part === "." || part === "..") ||
-      path.split("/").some(part => part.toLowerCase() === ".git") ||
-      /^\.env(?:\.|$)/i.test(path) || /(^|\/)(?:secrets?|credentials?)(?:\/|\.|$)/i.test(path)) {
+      path.split("/").some(part => part.toLowerCase() === ".git" || /^\.env(?:\.|$)/i.test(part)) || /(^|\/)(?:secrets?|credentials?)(?:\/|\.|$)/i.test(path)) {
     throw new Error("This repository path is not allowed.");
   }
 }
@@ -111,7 +108,7 @@ export async function createKanakoGitHubTools() {
       if (!/^[0-9a-f-]{16,64}$/i.test(taskId)) throw new Error("Invalid task identifier.");
       const branch = `kanako/task-${taskId.slice(0, 8)}-${Date.now().toString(36)}`;
       const ref = await githubRequest<{ object: { sha: string } }>(
-        token, `/repos/${OWNER}/${REPOSITORY}/git/ref/heads/${encodeURIComponent(baseBranch)}`,
+        token, `/repos/${OWNER}/${REPOSITORY}/git/ref/heads/${baseBranch.split("/").map(encodeURIComponent).join("/")}`,
       );
       await githubRequest(token, `/repos/${OWNER}/${REPOSITORY}/git/refs`, {
         method: "POST",
