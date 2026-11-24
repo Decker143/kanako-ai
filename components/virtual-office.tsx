@@ -39,6 +39,8 @@ export function VirtualOffice({ organizationName, organizationId, agents, depart
   const filteredAgents = agents.filter(agent=>filter==="all" || agent.departmentId===filter);
   useEffect(() => {
     if (!filteredAgents.some(agent => agent.id === selected)) {
+      // Keep the selected employee valid when the department filter changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelected(filteredAgents[0]?.id ?? null);
     }
   }, [filteredAgents, selected]);
