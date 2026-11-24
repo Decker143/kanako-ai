@@ -12,7 +12,7 @@ function requiredEnv(name: string) {
 }
 
 function base64url(value: string | Buffer) {
-  return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
 function createAppJwt() {
