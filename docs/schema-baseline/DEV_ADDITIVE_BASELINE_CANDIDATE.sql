@@ -1,5 +1,6 @@
 -- KANAKO AI Dev additive baseline candidate
--- STATUS: REVIEW ONLY — DO NOT APPLY YET.
+-- STATUS: APPLIED TO DEV on 2026-11-24; DO NOT RUN AGAIN.
+-- Successful Dev migration history entry: 20261124065345 / dev_additive_schema_baseline_20261124.
 -- Target: kanako-ai-dev-test (Supabase Free).
 -- Source: live Production catalog reconstruction reference, checked 2026-11-24.
 --
@@ -13,6 +14,8 @@
 --   * ai_agents.name, ai_agents.job_title, and tasks.title are added nullable because they
 --     are NOT NULL in Production but have no default and populated Dev fixtures lack values.
 --     Making them NOT NULL requires an explicitly approved fixture backfill decision.
+--   * All new primary/unique keys are created before foreign keys to satisfy dependency ordering.
+--   * PostgreSQL's PUBLIC pseudo-role is unquoted in the exact routine ACL statements.
 --   * The organization_members composite PK is safe against the current two fixture rows
 --     (no null key parts or duplicate pairs were found).
 --   * No Auth user is created. The later Phase 1 E2E test requires a separately approved
@@ -20,7 +23,8 @@
 --   * Do not run this script until the three nullable columns and NOT VALID FK treatment
 --     are explicitly accepted and the full diff has been reviewed.
 --
--- This file is deliberately outside supabase/migrations and does not alter migration history.
+-- This file remains outside supabase/migrations. It was applied once through the Supabase migration tool,
+-- which recorded the successful Dev migration-history entry listed above. Do not rerun this one-shot file.
 -- ONE-SHOT SCRIPT: ADD CONSTRAINT, CREATE TRIGGER, and CREATE POLICY statements are not
 -- idempotent. Do not rerun after a partial or successful execution; inspect the live catalog
 -- and prepare a reconciled follow-up instead.
