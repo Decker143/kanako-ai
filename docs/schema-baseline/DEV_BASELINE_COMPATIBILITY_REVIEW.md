@@ -24,6 +24,7 @@
 - Dev currently grants all seven privileges to `anon`, `authenticated`, `postgres`, and `service_role` on all four fixture tables. Preserve those fixture grants as-is; do not use them as a template for newly added tables.
 - The `public` schema ACL is the same in Production and Dev. Production additionally has a `private` schema with ACL `postgres=UC, authenticated=U`; Dev currently has no `private` schema.
 - The catalog query of default privileges returned matching entries for the inspected managed schemas in both projects. Do not replace or normalize managed-schema default ACLs.
+- Production has one additional custom Auth trigger outside the public-schema trigger inventory: `auth.users.on_auth_user_created` calls `public.handle_new_user()` after a new Auth user is inserted. Dev currently has no non-internal trigger on `auth.users`; the additive candidate restores this trigger. No Auth users are created by the candidate.
 - The Production routine inventory includes eight functions in `public`/`private`. The two private SECURITY DEFINER helper functions are executable by `authenticated`, not `anon`; the private trigger function is not executable by API roles. `create_organization(text)` is SECURITY DEFINER, has an empty search_path, and is executable by `authenticated` and `service_role`, not `anon`. `handle_new_user()` is executable by `service_role` only. `set_updated_at()` is not SECURITY DEFINER and retains PUBLIC execution. These grants and function attributes must be recreated exactly, not broadened.
 - Important: the generated SQL reference contains the 21 explicit routine `GRANT` statements but no `REVOKE` statements. Both projects' `public` default function privileges grant EXECUTE to `anon`, `authenticated`, and `service_role`, and PostgreSQL's built-in function default grants EXECUTE to `PUBLIC` unless revoked. The live Production ACLs show that most functions do **not** retain those defaults. A Dev candidate must explicitly `REVOKE ALL` from `PUBLIC` and the API roles as appropriate before applying the exact per-function grants. Preserve `PUBLIC` execution only for `public.set_updated_at()`. The schema-reference grant list alone is not sufficient to reproduce function security.
 
@@ -75,7 +76,7 @@ The generated reference was compared against live Production catalog definitions
 - 58/58 standalone index definitions matched.
 - 72/72 RLS policy expressions matched, including command, role and permissive mode.
 - 8/8 function definitions matched.
-- 10/10 trigger definitions matched.
+- 10/10 public trigger definitions matched; the separate `auth.users.on_auth_user_created` trigger was checked independently and is missing from Dev.
 - 78/78 table-grant sets and 21/21 routine-grant entries matched.
 - 21/21 public tables have RLS enabled.
 - The schema-level ACL and default-privilege comparison was performed separately. The candidate adds the missing `private` schema usage grant and explicit routine revokes; the generated reference itself omits those revokes.
@@ -87,7 +88,7 @@ The generated reference was compared against live Production catalog definitions
 - Three missing shared-column defaults restored.
 - 112 missing constraints.
 - 14 foreign keys on populated fixture tables marked `NOT VALID` to preserve existing orphaned references while enforcing new writes.
-- 58 standalone indexes, 8 functions, 10 triggers, 72 Production policies, 78 table grants, 21 routine grants, and 7 explicit function revokes.
+- 58 standalone indexes, 8 functions, 10 public triggers plus 1 Auth trigger, 72 Production policies, 78 table grants, 21 routine grants, and 7 explicit function revokes.
 - The existing four fixture tables, seven test policies, current grants and Dev-only reservation function are preserved.
 - `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` remain nullable because the populated fixture rows have no values and Production has no defaults for those required columns.
 
