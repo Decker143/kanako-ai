@@ -2,54 +2,72 @@
 
 **Roadmap source:** `docs/KANAKO_MASTER_ROADMAP.md`  
 **Current phase:** Phase 1 — Virtual company structure  
-**Scope:** Static schema review and candidate preparation completed; no database writes.
+**Current status:** Dev schema baseline applied and structurally verified; Phase 1 E2E tests remain blocked on a separately approved synthetic Dev Auth identity.
+
+## Dev baseline application
+
+**Status: APPLIED AND VERIFIED — Dev only**
+
+The additive baseline candidate was applied successfully to `kanako-ai-dev-test` using migration history entry:
+
+- Version: `20261124065345`
+- Name: `dev_additive_schema_baseline_20261124`
+
+Post-apply catalog verification returned:
+
+| Catalog item | Dev result |
+|---|---:|
+| Public tables | 21 |
+| Public columns | 206 |
+| Public constraints | 115 |
+| Public foreign keys | 59 |
+| Existing-table foreign keys marked NOT VALID | 14 |
+| Public indexes | 81 |
+| Public RLS policies | 79 (72 Production policies + 7 preserved test policies) |
+| Public triggers | 10 |
+| Auth `auth.users` trigger | 1 |
+| Public/private functions | 9 (8 restored + Dev-only reservation function) |
+| Public tables without RLS | 0 |
+
+Existing fixture row counts remain unchanged: 2 organization members, 1 AI agent, 5 tasks, and 2 agent runs. The Dev-only `reserve_agent_task_run(...)` function and all seven `test_*` policies remain present. Dev still has zero Auth users and no seeded organization/department data.
+
+The first two application attempts failed before committing any schema changes. Post-failure checks confirmed the original four-table fixture schema and migration history were intact. The corrected candidate was then applied successfully. The successful migration is recorded once; do not rerun the one-shot candidate.
 
 ## Nine-department organization-seed test
 
-**Status: BLOCKED — Dev baseline not applied**
+**Status: BLOCKED — requires a separately approved synthetic Dev Auth identity**
 
-The canonical roadmap calls for verifying the nine-department migration and organization-creation function in a disposable test workspace or controlled test transaction.
+The canonical roadmap calls for verifying the nine-department migration and organization-creation function in a controlled test workspace or transaction.
 
-The current Dev project `kanako-ai-dev-test` is not yet a complete application schema:
-- Only 4 public tables exist: `organization_members`, `ai_agents`, `tasks`, and `agent_runs`.
-- It is missing the Production `organizations` and `departments` tables required by `create_organization(text)`.
-- The Dev Auth schema currently has 0 users, so there is no existing synthetic authenticated user context for a realistic `auth.uid()`-based organization-creation test.
-- The four fixture tables, their rows, seven `test_*` policies, grants and Dev-only reservation function must be preserved.
+- Dev now contains the full 21-table application schema and the `organizations` primary key required by `create_organization(text)`.
+- The Auth trigger `auth.users.on_auth_user_created` has been restored.
+- Dev currently has 0 Auth users. A realistic `auth.uid()` organization-creation test therefore requires a synthetic authenticated identity.
+- No synthetic Auth user has been created; this needs separate explicit approval.
+- Do not run the organization-creation function in Production.
 
-## Static SQL review
+## Compatibility exceptions intentionally retained
 
-- The first CEO Office migration inserts all nine departments in one multi-row `INSERT` and then uses `RETURNING id INTO ceo_department_id`. A multi-row INSERT can return multiple IDs, so assigning that result to a scalar variable is unsafe.
-- The following exact-version migration removes that multi-row `RETURNING` usage and instead explicitly selects the newly created CEO Office department using `SELECT ... INTO STRICT` before inserting Kanako.
-- The live Production function has the corrected explicit-selection pattern and seeds all nine departments, with Kanako in CEO Office as a draft.
-- The generated schema reference was compared against the live catalog: all 206 columns, 115 constraints, 58 standalone indexes, 72 policy expressions, 8 function definitions, 10 trigger definitions, and grant entries matched.
-- Static inspection is not an end-to-end test and must not be marked complete.
-
-## Candidate and required approval
-
-The additive candidate is prepared at `docs/schema-baseline/DEV_ADDITIVE_BASELINE_CANDIDATE.sql`. It is a one-shot review artifact and has not been applied.
-
-It preserves existing fixture rows by:
-- adding `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` as nullable for now (Production requires NOT NULL, but the existing fixtures have no values and there are no defaults);
-- adding 14 foreign keys on populated fixture tables as `NOT VALID`, so existing orphan references do not block reconstruction while new writes are still checked;
-- preserving all seven Dev test policies, all four tables, their current grants, and the Dev-only reservation function;
-- restoring Production's `auth.users.on_auth_user_created` trigger so a newly created Dev Auth user can receive its `public.profiles` row.
-
-**Do not apply the candidate until the owner explicitly accepts these compatibility exceptions.** Exact Production NOT NULL/FK parity will require a separately approved fixture repair and later constraint validation.
+- `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` remain nullable in Dev. Production requires these fields to be NOT NULL, but the existing fixture rows have no values and the columns have no defaults.
+- Fourteen foreign keys on populated fixture tables are `NOT VALID`. Existing orphan references are preserved; new writes are still checked. Later fixture repair and constraint validation require a separate reviewed decision.
+- Seven Dev `test_*` RLS policies remain alongside the 72 Production policies. They were explicitly preserved to avoid breaking the existing reservation/RLS test fixture. Supabase advisors report multiple permissive policies on the fixture tables because both policy sets coexist; do not remove either set without a separate review.
+- The security advisor reports the same intended `public.create_organization(text)` SECURITY DEFINER exposure to `authenticated` as Production. Do not change its grants as part of this Dev baseline task.
+- Performance advisor reports five unindexed foreign keys and 53 unused indexes. These findings are informational/expected on a newly reconstructed, lightly used Dev database; do not remove indexes or add indexes without workload review.
 
 ## Required sequence
 
 1. Static schema and security comparison — **completed**.
-2. Prepare additive Dev baseline candidate — **completed; not applied**.
-3. Obtain explicit approval for the three nullable columns and 14 `NOT VALID` foreign keys, then apply only to Dev.
-4. Create a synthetic Dev Auth test identity only within an explicitly approved, controlled test process.
-5. Run the organization-seed test and verify exactly nine departments plus a draft Kanako assigned to CEO Office.
-6. Then continue with the roadmap's project-plan approval and task-creation tests.
+2. Prepare additive Dev baseline candidate — **completed**.
+3. Obtain owner approval for the three nullable columns and 14 `NOT VALID` foreign keys — **completed**.
+4. Apply the reviewed candidate to Dev only — **completed and verified**.
+5. Create a synthetic Dev Auth test identity — **not yet authorized; do not create automatically**.
+6. Run the organization-seed test and verify exactly nine departments plus a draft Kanako assigned to CEO Office.
+7. Continue with the roadmap's project-plan approval, task creation, duplicate-approval protection, invalid-department handling, and shared active-workspace tests.
 
 ## Safety
 
-- Do not run the Production function or create test organizations in Production.
-- Do not copy Production rows into Dev.
-- Do not reset, truncate, drop, or replace the current Dev fixtures.
-- Do not create a new Supabase project or branch for this test; Supabase branches may incur hourly charges and would violate the free-only guardrail unless separately confirmed as $0.
-- Do not change Preview environment variables or redeploy as part of this test.
+- Production remains read-only and unchanged.
+- No Production rows were copied into Dev.
+- No existing Dev fixture rows, test policies, grants, or reservation function were deleted or overwritten.
+- No Supabase project or branch was created; no paid resources were used.
+- No Vercel environment variables, Preview deployment, Production deployment, or GitHub PR merge was changed.
 - Do not run `db push`, reset, or replay the mismatched Production migration ledger.
