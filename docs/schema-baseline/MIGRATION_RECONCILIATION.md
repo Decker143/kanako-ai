@@ -15,9 +15,9 @@ Generated 2026-11-24 from the live Production migration history and the `feature
 | `20261122215807` | `seed_default_departments_on_org_create` | — | `missing_repo_file` |
 | `20261122221903` | `tighten_function_execute_permissions` | — | `missing_repo_file` |
 | `20261122222526` | `add_agent_execution_runs` | `202611230001_add_agent_execution_runs.sql` | `same_name_different_version` |
-| `20261122222741` | `restrict_agent_run_mutations_to_admins` | — | `missing_repo_file` |
+| `20261122222741` | `restrict_agent_run_mutations_to_admins` | `202611230002_restrict_agent_run_mutations.sql` | `renamed_candidate_semantics_unverified` |
 | `20261122222753` | `index_uncovered_foreign_keys` | `202611230003_index_uncovered_foreign_keys.sql` | `same_name_different_version` |
-| `20261122222846` | `seed_kanako_ceo_draft_on_org_create` | — | `missing_repo_file` |
+| `20261122222846` | `seed_kanako_ceo_draft_on_org_create` | `202611230004_seed_kanako_ceo_draft.sql` | `renamed_candidate_semantics_unverified` |
 | `20261122223014` | `tighten_actor_and_relationship_rls` | `202611230005_tighten_actor_and_relationship_rls.sql` | `same_name_different_version` |
 | `20261122223618` | `restrict_workflow_run_mutations` | `202611230006_restrict_workflow_run_mutations.sql` | `same_name_different_version` |
 | `20261122224005` | `prevent_concurrent_workflow_runs` | `202611230007_prevent_concurrent_workflow_runs.sql` | `same_name_different_version` |
@@ -47,8 +47,6 @@ Generated 2026-11-24 from the live Production migration history and the `feature
 
 ## Repository migration files without a direct Production-history mapping
 
-- `202611230002_restrict_agent_run_mutations.sql`
-- `202611230004_seed_kanako_ceo_draft.sql`
 
 ## Required next review
 
