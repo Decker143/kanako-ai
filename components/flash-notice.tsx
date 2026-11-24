@@ -13,6 +13,8 @@ export function FlashNotice({ success, error }: FlashNoticeProps) {
   const [visible, setVisible] = useState(Boolean(message));
 
   useEffect(() => {
+    // Reset visibility when the incoming flash message changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(Boolean(message));
     if (!message) return;
     const timeout = window.setTimeout(() => setVisible(false), 5000);
