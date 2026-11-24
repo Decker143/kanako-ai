@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   if (!body?.agentId || !body?.taskId) return NextResponse.json({ error: "Select an AI employee and a task." }, { status: 400 });
 
   const [{ data: agent }, { data: task }] = await Promise.all([
-    supabase.from("ai_agents").select("id,name,job_title,instructions,model_name,status,department_id,capabilities")
+    supabase.from("ai_agents").select("id,name,job_title,instructions,model_name,status,availability_status,max_concurrent_tasks,department_id,capabilities")
       .eq("id", body.agentId).eq("organization_id", membership.organization_id).maybeSingle(),
     supabase.from("tasks").select("id,title,description,status,priority,department_id,assigned_agent_id")
       .eq("id", body.taskId).eq("organization_id", membership.organization_id).maybeSingle(),
@@ -32,6 +32,20 @@ export async function POST(request: Request) {
   if (!agent) return NextResponse.json({ error: "AI employee not found." }, { status: 404 });
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   if (agent.status !== "active") return NextResponse.json({ error: "Only activated AI employees can run tasks." }, { status: 409 });
+  if (agent.availability_status !== "available") return NextResponse.json({ error: "This AI employee is not currently available for new work." }, { status: 409 });
+  if (task.department_id && agent.department_id && task.department_id !== agent.department_id) {
+    return NextResponse.json({ error: "The task department does not match this AI employee's assigned department. Reassign the task or employee before running it." }, { status: 409 });
+  }
+  const { count: openTaskCount, error: capacityError } = await supabase.from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", membership.organization_id)
+    .eq("assigned_agent_id", agent.id)
+    .not("status", "in", '("completed","cancelled")');
+  if (capacityError) return NextResponse.json({ error: "Could not verify the AI employee's current workload. No run was started." }, { status: 503 });
+  const alreadyAssigned = task.assigned_agent_id === agent.id;
+  if (!alreadyAssigned && (openTaskCount ?? 0) >= (agent.max_concurrent_tasks ?? 1)) {
+    return NextResponse.json({ error: "This AI employee has reached their concurrent task capacity." }, { status: 409 });
+  }
   const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
   if (!capabilities.includes("task_execution")) {
     return NextResponse.json({ error: "This AI employee does not have the Task execution permission." }, { status: 403 });
@@ -69,6 +83,7 @@ export async function POST(request: Request) {
     message: agent.name + " started work on this task.",
   });
 
+  let githubSideEffects: string[] = [];
   try {
     const [{ data: departments }, { data: knowledge }, { data: approvedMemories }, { data: learningHistory }, { data: previousRuns }] = await Promise.all([
       capabilities.includes("department_read")
@@ -99,6 +114,7 @@ export async function POST(request: Request) {
           if (taskBranch) throw new Error("A task branch has already been created for this run.");
           const result = await github.createTaskBranch(task.id);
           taskBranch = result.branch;
+          githubSideEffects.push("Created branch " + result.branch);
           return { ...result, purpose: purpose.slice(0, 300) };
         },
       }),
@@ -116,7 +132,9 @@ export async function POST(request: Request) {
         inputSchema: jsonSchema<{ path: string; content: string; message: string; branch: string }>({ type: "object", properties: { path: { type: "string", minLength: 1, maxLength: 240 }, content: { type: "string", maxLength: 100000 }, message: { type: "string", minLength: 5, maxLength: 120 }, branch: { type: "string", minLength: 1, maxLength: 120 } }, required: ["path", "content", "message", "branch"], additionalProperties: false }),
         execute: async ({ path, content, message, branch }) => {
           if (!taskBranch || branch !== taskBranch) throw new Error("Create a task branch first. Writes are allowed only on the branch created during this run.");
-          return github.writeFile(path, content, message, branch);
+          const result = await github.writeFile(path, content, message, branch);
+          githubSideEffects.push("Committed " + path + " (" + result.commitSha + ")");
+          return result;
         },
       }),
       openDraftPullRequest: tool({
@@ -124,7 +142,9 @@ export async function POST(request: Request) {
         inputSchema: jsonSchema<{ title: string; body: string; branch: string }>({ type: "object", properties: { title: { type: "string", minLength: 5, maxLength: 120 }, body: { type: "string", maxLength: 10000 }, branch: { type: "string", minLength: 1, maxLength: 120 } }, required: ["title", "body", "branch"], additionalProperties: false }),
         execute: async ({ title, body, branch }) => {
           if (!taskBranch || branch !== taskBranch) throw new Error("A draft pull request may be opened only for this run's task branch.");
-          return github.createPullRequest(title, body, branch);
+          const result = await github.createPullRequest(title, body, branch);
+          githubSideEffects.push("Opened draft PR #" + result.number);
+          return result;
         },
       }),
     } : {}) as import("ai").ToolSet;
@@ -201,18 +221,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ runId: run.id, status: "succeeded", output: result.text, conversationId: conversation.id });
   } catch (error) {
     console.error("KANAKO AI agent run failed", error);
+    const recoveryRequired = githubSideEffects.length > 0;
     await supabase.from("agent_runs").update({
-      status: "failed", error: "AI provider execution failed.", finished_at: new Date().toISOString(),
+      status: "failed",
+      error: recoveryRequired
+        ? "Execution stopped after GitHub changes. Human recovery review is required; repository changes were not rolled back."
+        : "AI provider execution failed before any GitHub changes.",
+      output: recoveryRequired ? { recovery_required: true, github_side_effects: githubSideEffects } : null,
+      finished_at: new Date().toISOString(),
     }).eq("id", run.id).eq("organization_id", membership.organization_id);
     await supabase.from("tasks").update({
-      status: task.status,
-      assigned_agent_id: task.assigned_agent_id,
+      status: recoveryRequired ? "blocked" : task.status,
+      assigned_agent_id: task.assigned_agent_id ?? agent.id,
     }).eq("id", task.id).eq("organization_id", membership.organization_id);
     await supabase.from("task_updates").insert({
       organization_id: membership.organization_id, task_id: task.id,
       actor_user_id: user.id, actor_agent_id: agent.id,
       event_type: "note",
-      message: agent.name + " execution failed. The task was returned to its previous state; inspect the AI run record before retrying.",
+      message: recoveryRequired
+        ? agent.name + " execution stopped after GitHub changes. The task is blocked for owner recovery review; do not retry until the branch and draft PR are inspected."
+        : agent.name + " execution failed before GitHub changes. The task was returned to its previous state; inspect the AI run record before retrying.",
     });
     await supabase.from("agent_learning_events").insert({
       organization_id: membership.organization_id,
@@ -223,12 +251,16 @@ export async function POST(request: Request) {
       feedback: "The AI execution failed before producing a reviewable result.",
       lesson: "Inspect the execution error and retry only after correcting the underlying cause.",
       created_by: user.id,
-      metadata: { failure_stage: "generation_or_persistence" },
+      metadata: { failure_stage: "generation_or_persistence", recovery_required: recoveryRequired, github_side_effects: githubSideEffects },
     });
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
       action: "ai_agent.task_run_failed", entity_type: "agent_run", entity_id: run.id,
     });
-    return NextResponse.json({ error: "The AI employee could not complete this task. Check AI Gateway access and model configuration." }, { status: 502 });
+    return NextResponse.json({
+      error: recoveryRequired
+        ? "The AI run stopped after making GitHub changes. The task is blocked for owner review; inspect its run record before retrying."
+        : "The AI employee could not complete this task. Check AI Gateway access and model configuration.",
+    }, { status: 502 });
   }
 }
