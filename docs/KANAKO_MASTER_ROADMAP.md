@@ -287,3 +287,11 @@ Next:
 - [Verified] The Preview build completed Next.js compilation, TypeScript, static page generation (15/15), and output deployment. No Production target was selected.
 - [Safety] No Supabase schema/data, Production environment, billing plan, or paid AI service was changed.
 - [Next roadmap work] Continue with browser-level offline sync and cross-workspace switching tests, then complete the CEO Command Center department-health/workload/run-outcome/pending-approval visibility. Keep all verification in the Dev workspace and Preview environment.
+
+## CEO Command Center workload and approvals follow-up — 2026-11-25
+
+- [Implemented; CI/Preview verification pending] Extended the existing owner dashboard with a pending-approvals queue (up to five visible, with a link to the Approval Center) and an employee workload table for active employees.
+- Workload rows show department, open assigned tasks against each employee's configured concurrent-task limit, remaining capacity, high-priority assignments, and availability/capacity signal. Draft profiles remain excluded. If no employees are active, the dashboard explains why no workload rows are shown.
+- The dashboard is informational only; it does not automatically assign or reassign work. This stays within Phase 1 CEO Command Center visibility and the free Dev/Preview workflow.
+- [Still open] Browser-level offline sync and cross-workspace switching tests remain unverified. The repository has no Playwright setup yet, and the current execution environment cannot reach the Preview URL; do not mark browser E2E as passed until an actual supported browser run is available.
+- [Safety] This change is limited to the Phase 1 feature branch. No Supabase data/schema, Production deployment, paid plan, or AI provider was changed.
