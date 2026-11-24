@@ -47,32 +47,31 @@ The first two application attempts failed before committing any schema changes. 
 
 ## Project-plan approval and task creation checks
 
-**Status: DATABASE-LEVEL CHECKS PASSED — controlled Dev transactions, rolled back**
+**Status: ATOMIC DATABASE FUNCTION IMPLEMENTED AND VERIFIED — Dev only**
 
-Inspected the current feature-branch implementation in `app/actions.ts`:
+The initial review identified a partial-commit risk: the previous server action claimed a plan, inserted tasks, and marked the plan approved through separate requests. The action could leave a plan in `processing` if interrupted between requests.
 
-- `createProjectPlan` validates owner/admin role, required title/objective/task list, normalizes priority, and stores a structured `project_plan` report with `pending_approval`.
-- `approveProjectPlan` validates owner/admin role and workspace ownership of the plan, checks that the plan is pending and has tasks, and rejects unknown department names before claiming approval.
-- Approval claim uses a conditional update from `pending_approval` to `processing`; this is the duplicate-approval guard.
-- Task rows are created with `queued` status and plan metadata. Employee assignment/execution remains separate.
-- Database RLS policies for reports and tasks were inspected. A controlled transaction ran as the synthetic `authenticated` user with the owner membership, exercising the insert/update paths and task creation.
+A transactional database function now owns the entire approval operation:
 
-Controlled Dev test results:
+- `public.approve_project_plan(uuid, uuid)` is `SECURITY INVOKER`, with an empty search path and explicit owner/admin authorization through `private.has_org_role`.
+- It locks the target report row with `FOR UPDATE`, validates workspace/report type and `pending_approval` status, checks all task titles and department names, inserts every queued task, and updates the report to `approved` with the task IDs.
+- All steps execute in one PostgreSQL transaction. Any validation or insert failure rolls back all task inserts and the report update.
+- The function is executable by `authenticated` only. Readback verified: `SECURITY DEFINER = false`, authenticated execute = true, anon execute = false, PUBLIC execute = false.
+- `app/actions.ts` now calls the RPC and no longer performs separate claim/insert/final-status requests.
+
+**Dev verification — all test transactions rolled back:**
 
 | Check | Result |
 |---|---:|
-| Initial approval claim | 1 row claimed |
-| Second/duplicate approval claim | 0 rows claimed |
-| Unknown department detection | 1 invalid department detected |
-| Task creation from a valid two-task plan | 2 tasks created |
-| Final plan status after successful test | `approved` |
-| Department seed available to test workspace | 9 |
+| Valid two-task approval | 2 tasks created; plan status `approved` |
+| Duplicate approval attempt | Rejected; second claim did not run |
+| Unknown department | Rejected before task creation |
+| Partial failure (valid first task, invalid second task) | Entire function call rolled back; 0 tasks persisted; plan stayed `pending_approval` |
+| Function security | Invoker; authenticated-only execute grant |
 
-A separate one-task guard test also confirmed one initial claim, zero duplicate claims, one task created, and final `approved` status. All test transactions were rolled back. Follow-up checks confirmed no leftover test organizations or test reports.
+The Dev function was created using direct SQL for iterative verification. The corresponding migration file is committed to the audit branch at `supabase/migrations/20261124140000_add_atomic_project_plan_approval.sql`. The application action update and migration are also committed on the audit branch. These changes have **not** been applied to Production, merged, or deployed.
 
-**Important implementation risk found — not yet fixed:** approval claiming, task insertion, and final plan-status update are separate database requests in the server action, not one atomic database transaction. The conditional claim prevents a second approver from claiming the same pending plan, but an interruption after the claim can leave the plan in `processing`. The task-insert failure path marks the plan `failed`, but recovery/repair behavior is not yet proven. The final status update's returned error is not checked. Recommend a reviewed, atomic database function (or equivalent transaction boundary) before treating this workflow as production-ready. No code or schema change was made during this audit.
-
-**Test scope limitation:** these were controlled database-level simulations of the server action's writes and RLS behavior. The actual Next.js server actions, redirects, browser form flow, concurrent HTTP requests, and failure-recovery behavior have not yet been exercised end-to-end.
+**Test scope limitation:** database/RLS behavior and transaction atomicity are verified. Actual Next.js/browser form flow, concurrent HTTP requests, and full deployed E2E remain pending.
 
 ## Compatibility exceptions intentionally retained
 
