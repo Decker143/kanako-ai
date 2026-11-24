@@ -1148,6 +1148,17 @@ export type Database = {
           p_task_id: string
         }
         Returns: Json
+      },
+      sync_offline_agent_run: {
+        Args: {
+          p_agent_id: string
+          p_model: string
+          p_offline_client_id: string
+          p_organization_id: string
+          p_output: string
+          p_task_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {
