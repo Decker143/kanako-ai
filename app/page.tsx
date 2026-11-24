@@ -81,6 +81,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     supabase.from("agent_memories").select("id,agent_id,memory_type,title,content,status,confidence,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(100),
     supabase.from("agent_learning_events").select("id,agent_id,event_type,feedback,lesson,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(100),
   ]);
+  const [{count:openTaskCount},{count:pendingApprovalCount}] = await Promise.all([
+    supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).not("status","in",'("completed","cancelled")'),
+    supabase.from("approvals").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("status","pending"),
+  ]);
   const taskUpdatesByTask = new Map<string, NonNullable<typeof taskUpdates>>();
   for (const update of taskUpdates ?? []) {
     const existing = taskUpdatesByTask.get(update.task_id) ?? [];
@@ -96,8 +100,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     return departmentMatch && statusMatch && assigneeMatch && queryMatch;
   });
 
-  const openTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status)).length;
-  const pendingApprovals = (approvals ?? []).filter(a => a.status === "pending").length;
+  const openTasks = openTaskCount ?? (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status)).length;
+  const pendingApprovals = pendingApprovalCount ?? (approvals ?? []).filter(a => a.status === "pending").length;
   const activeTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status));
   const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < new Date().getTime());
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
@@ -170,7 +174,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="grid">
           <div className="panel stat"><div className="muted">Departments</div><strong>{departments?.length??0}</strong><span className="muted">Configured teams</span></div>
           <div className="panel stat"><div className="muted">AI Employees</div><strong>{agents?.length??0}</strong><span className="muted">Definitions saved</span></div>
-          <div className="panel stat"><div className="muted">Open Tasks</div><strong>{openTasks}</strong><span className="muted">Live database records</span></div>
+          <div className="panel stat"><div className="muted">Open Tasks</div><strong>{openTasks}</strong><span className="muted">Exact organization-wide count</span></div>
           <div className="panel stat"><div className="muted">Pending Approvals</div><strong>{pendingApprovals}</strong><span className="muted">Awaiting human review</span></div>
         </div>
         <div className="section-head"><h2>Kanako oversight &amp; AI performance</h2><span className="pill">Latest 50 run records</span></div>
@@ -183,8 +187,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="section-head"><h2>CEO Office · Executive operations brief</h2><div className="inline-form"><span className="pill">{ceoProfile?.status ?? "CEO profile missing"}</span>{["owner","admin"].includes(role)&&<form action={generateExecutiveReport}><button className="btn secondary">Generate executive report</button></form>}</div></div>
         <div className="grid">
           <div className="panel"><div className="eyebrow">WORKFORCE READINESS</div><h3>{availableEmployees.length} available · {unavailableEmployees.length} unavailable</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{activeEmployees.length} active employees across {agents?.length ?? 0} saved profiles. Draft profiles are excluded from operational capacity.</p></div>
-          <div className="panel"><div className="eyebrow">TASK HEALTH</div><h3>{blockedTasks.length} blocked · {overdueTasks.length} overdue</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{staleTasks.length} open tasks were created 72+ hours ago. Based on the latest {tasks?.length ?? 0} task records.</p></div>
-          <div className="panel"><div className="eyebrow">WORKLOAD &amp; PRIORITIES</div><h3>{employeesAtCapacity.length} at capacity · {highPriorityTasks.length} high priority</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{unassignedTasks.length} unassigned tasks still need routing or owner review.</p></div>
+          <div className="panel"><div className="eyebrow">TASK HEALTH</div><h3>{blockedTasks.length} blocked · {overdueTasks.length} overdue</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{staleTasks.length} open tasks were created 72+ hours ago. Health indicators are calculated from the latest {tasks?.length ?? 0} task records (up to 100).</p></div>
+          <div className="panel"><div className="eyebrow">WORKLOAD &amp; PRIORITIES</div><h3>{employeesAtCapacity.length} at capacity · {highPriorityTasks.length} high priority</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>{unassignedTasks.length} unassigned tasks in the latest {tasks?.length ?? 0} loaded records still need routing or owner review.</p></div>
           <div className="panel"><div className="eyebrow">EXECUTION &amp; APPROVAL HEALTH</div><h3>{failedAgentRuns.length + failedWorkflowRuns.length} failed · {agingApprovals.length} aging approvals</h3><p className="muted" style={{fontSize:12,marginBottom:0}}>Failures and approvals older than 48 hours are surfaced for owner attention. No automatic retries or approvals are performed.</p></div>
         </div>
         <div className="panel" style={{marginTop:14}}>
