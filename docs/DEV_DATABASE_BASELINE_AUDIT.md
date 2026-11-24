@@ -143,3 +143,23 @@ Therefore, the four baseline SQL files cannot be recovered from the currently in
 On 2026-11-24, the owner approved changing the Vercel environment variable `KANAKO_AI_EXECUTION_ENABLED` to `false` for the **Preview target only**. The variable was updated and then read back successfully with value `false` and target `preview`. Production and Development targets were not changed.
 
 This is an environment-variable configuration update; it does not automatically modify an already-created deployment's bundled/runtime environment. A new Preview deployment may be required for the setting to take effect. No redeployment was triggered. Until a new deployment is explicitly approved and verified, continue treating the existing Preview deployment as potentially running with its previous environment value. Regardless, Preview still points to the Production Supabase project and must not be used for write operations.
+
+
+## Cloud-side schema introspection — 2026-11-24
+
+A read-only catalog introspection was successfully run against Production through the connected Supabase SQL tool. This removes the need for the owner to install the CLI/Docker merely to make the schema available for analysis. No rows from application tables were selected or exported.
+
+The catalog inspection retrieved:
+- All 21 public table/view definitions at the column-metadata level (206 columns total), including types, nullability, defaults, constraints, indexes, RLS policies, and trigger metadata.
+- All 8 functions in the `public` and `private` schemas, including their definitions, argument/return signatures, language, security-definer flag, volatility, and function configuration.
+- All 10 non-internal public triggers, including the task AI-review gate trigger and nine `set_updated_at` triggers.
+- Public enum metadata (none were returned).
+
+A read-only column comparison against Dev found 28 Dev columns versus 206 Production columns. Only 3 of the 21 Production tables exist in Dev with matching names plus `organization_members` (four shared tables total). Dev is missing the other 17 Production tables. The shared tables are incomplete:
+- `ai_agents`: 8 Dev columns vs 18 Production columns; 10 Production columns missing.
+- `tasks`: 5 Dev columns vs 15 Production columns; 10 Production columns missing.
+- `organization_members`: 3 Dev columns vs 4 Production columns; `created_at` missing.
+- `agent_runs`: 12 columns in both; column names match.
+There are also three shared-column default mismatches: `ai_agents.id`, `tasks.id`, and `organization_members.role` have Production defaults that are absent in Dev. No extra Dev-only columns were found in the compared public tables.
+
+Important scope note: this cloud-side introspection is a schema inventory, not yet a byte-for-byte `pg_dump` replacement. It does not by itself capture every database-level detail (for example all role grants/default privileges, extension-owned objects, auth/storage customizations, or exact migration file history). It is sufficient to continue a structured reconstruction and reconciliation without requiring the owner to install local tooling. Do not apply it to Dev until dependency order, complete DDL, permissions, RLS and fixture-preservation strategy have been reviewed.
