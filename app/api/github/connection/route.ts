@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { checkKanakoGitHubConnection } from "@/lib/github-app";
+import { checkKanakoGitHubConnection, checkKanakoGitHubWritePermissions } from "@/lib/github-app";
 import { createClient } from "@/lib/supabase/server";
 import { getOrganizationContext } from "@/lib/supabase/organization-context";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ connected: false, error: "Please sign in first." }, { status: 401 });
@@ -21,8 +21,11 @@ export async function GET() {
     // Verify the GitHub App with a read-only installation token.
     // Connection health checks must not require enabling repository writes.
     const connection = await checkKanakoGitHubConnection();
+    const verifyWritePermissions = new URL(request.url).searchParams.get("verifyWritePermissions") === "1";
+    const writeCheck = verifyWritePermissions ? await checkKanakoGitHubWritePermissions() : null;
     return NextResponse.json({
       ...connection,
+      ...(writeCheck ? { writePermissionCheck: writeCheck } : {}),
       enabled,
       message: enabled ? "GitHub connection verified." : "GitHub connection verified. Code execution remains disabled.",
     });
