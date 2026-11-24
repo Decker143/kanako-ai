@@ -1,6 +1,6 @@
 # Dev Baseline Compatibility Review — 2026-11-24
 
-**Review type:** Static/read-only. No database changes.
+**Review type:** Static catalog review plus post-apply Dev verification. Production remains unchanged.
 
 ## Confirmed safe-to-preserve Dev fixtures
 
@@ -103,3 +103,21 @@ The Production migration ledger still differs from repository migration versions
 ## Decision
 
 Continue with static review and migration candidate preparation on the documentation/audit branch. Do not apply SQL to Dev yet. Production remains read-only. No Supabase branch, paid feature, deployment or merge is required for this review.
+
+
+## Post-apply Dev verification
+
+The approved additive baseline was applied to `kanako-ai-dev-test` as migration `20261124065345_dev_additive_schema_baseline_20261124`.
+
+Verified after application:
+- 21 public tables and 206 public columns.
+- 115 public constraints: 59 foreign keys, 33 checks, 21 primary keys, and 2 unique constraints.
+- 14 existing-fixture foreign keys remain `NOT VALID`; the three compatibility columns remain nullable.
+- 81 public indexes.
+- 79 public policies: all 72 Production policies plus the seven preserved `test_*` policies.
+- 10 public triggers and the `auth.users.on_auth_user_created` trigger.
+- All 21 public tables have RLS enabled.
+- The four fixture tables retain their row counts (2 organization members, 1 AI agent, 5 tasks, 2 agent runs); the Dev-only reservation function remains.
+- Dev still has zero Auth users. No synthetic user or organization was created.
+
+Supabase security advisor reports the intended `public.create_organization(text)` SECURITY DEFINER function as executable by `authenticated`, matching Production's reviewed grant. Performance advisor reports five unindexed foreign keys, 53 unused indexes, and multiple permissive policies on fixture tables because the seven preserved test policies coexist with the Production policies. These were not changed; they require separate workload/security review and are not a reason to delete the preserved test fixtures.
