@@ -49,9 +49,9 @@ async function installationToken(access: "read" | "write" = "write") {
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Error("GitHub App could not obtain a repository installation token.");
-  const data = await response.json() as { token?: string };
+  const data = await response.json() as { token?: string; permissions?: Record<string, string> };
   if (!data.token) throw new Error("GitHub returned an invalid installation token.");
-  return data.token;
+  return { token: data.token, permissions: data.permissions ?? {} };
 }
 
 async function githubRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -103,7 +103,8 @@ function validatePath(path: string) {
 
 export async function createKanakoGitHubTools() {
   assertRepo();
-  const token = await installationToken();
+  const tokenResult = await installationToken();
+  const token = tokenResult.token;
   const baseBranch = process.env.KANAKO_GITHUB_BASE_BRANCH || DEFAULT_BASE_BRANCH;
   const api = {
     async createTaskBranch(taskId: string) {
@@ -170,14 +171,15 @@ export async function createKanakoGitHubTools() {
 
 export async function checkKanakoGitHubConnection() {
   assertRepo();
-  const token = await installationToken("read");
-  const repo = await githubRequest<{ full_name: string; permissions?: { contents?: string; pull_requests?: string } }>(
-    token, `/repos/${OWNER}/${REPOSITORY}`,
+  const tokenResult = await installationToken("read");
+  const repo = await githubRequest<{ full_name: string }>(
+    tokenResult.token, `/repos/${OWNER}/${REPOSITORY}`,
   );
   return {
     connected: repo.full_name === `${OWNER}/${REPOSITORY}`,
     repository: repo.full_name,
-    permissions: repo.permissions ?? {},
+    grantedPermissions: tokenResult.permissions,
+    accessLevel: "read-only",
     baseBranch: process.env.KANAKO_GITHUB_BASE_BRANCH || DEFAULT_BASE_BRANCH,
   };
 }
