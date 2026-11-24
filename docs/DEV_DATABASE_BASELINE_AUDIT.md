@@ -1,8 +1,8 @@
 # Development Database Baseline Audit
 
 **Date:** 2026-11-24  
-**Scope:** Read-only comparison of the linked Production and Dev Supabase projects, plus repository migration inventory.  
-**Safety:** No database schema, data, authentication settings, or production resources were changed.
+**Scope:** Production/Dev catalog comparison, repository migration inventory, and the subsequent approved additive baseline application to Dev.  
+**Safety:** Production schema/data/auth settings and deployments were not changed. The approved additive baseline was applied only to Dev; existing Dev fixtures were preserved.
 
 ## Findings
 
@@ -37,9 +37,10 @@ The migration inventory does **not** align one-to-one with Production history. A
 - Project: `kanako-ai-dev-test` (`pauzanqmxqhxczefabth`)
 - Status: `ACTIVE_HEALTHY`
 - PostgreSQL: 17
-- Public tables: 4 fixture tables (`organization_members`, `ai_agents`, `tasks`, `agent_runs`)
-- Dev has a purpose-built fixture schema for isolated reservation/RLS tests, not the full application schema.
-- Dev fixture migration history contains four test migrations and is independent of Production's migration history.
+- Public tables after approved baseline: 21, with 206 columns and 115 constraints.
+- Dev now has the full application schema plus its four preserved fixture tables, seven preserved `test_*` policies, and Dev-only reservation function.
+- Dev migration history contains the original four test migrations plus `20261124065345_dev_additive_schema_baseline_20261124`.
+- Fourteen foreign keys on populated fixture tables remain `NOT VALID`; three required text fields remain temporarily nullable; Dev has zero Auth users.
 
 ## Risk and decision
 
@@ -60,10 +61,10 @@ No Production migration, data change, or deployment is authorized by this audit.
 
 ## Validation still outstanding
 
-- Exact SQL source for the four missing baseline migrations.
-- Full structural diff of every table, index, constraint, trigger, function body, grant, and RLS policy.
-- Fresh-install replay of the complete migration chain in a clean Dev database.
-- End-to-end application tests against that full Dev schema.
+- End-to-end organization creation and nine-department/CEO seeding test in Dev, pending separate approval for a synthetic Auth identity.
+- Owner-authored project-plan approval, task creation, duplicate-approval protection, invalid-department handling, and shared active-workspace tests.
+- Fixture repair decision before validating the 14 `NOT VALID` foreign keys and enforcing `NOT NULL` on the three temporarily nullable fields.
+- Full migration-ledger reconciliation remains separate; do not replay or push the mismatched Production migration chain.
 
 
 ## Additional Production catalog inspection (read-only)
@@ -71,7 +72,7 @@ No Production migration, data change, or deployment is authorized by this audit.
 A second catalog pass inspected the live schema metadata without reading or exporting customer/workspace records.
 
 - 21 public tables have RLS enabled.
-- Catalog counts: 81 public indexes, 258 public constraints, 72 public RLS policies, 10 non-internal triggers, and 8 functions across the `public` and `private` schemas. The 258 count is the current direct `information_schema.table_constraints` result; an earlier 115 figure in this document was incorrect and is superseded.
+- Catalog counts: 81 public indexes, 115 public constraints (59 foreign keys, 33 checks, 21 primary keys, 2 unique constraints), 72 public RLS policies, 10 non-internal public triggers, and 8 functions across the `public` and `private` schemas. The authoritative constraint count is 115 from `pg_constraint`.
 - The schema has dependencies on Supabase Auth (including foreign keys to `auth.users`) and a private authorization helper schema.
 - Private functions include `private.is_org_member(uuid)`, `private.has_org_role(uuid, text[])`, and the AI-task review-gate trigger function.
 - Public trigger helpers include `public.set_updated_at()` and `public.handle_new_user()`; organization creation and task assignment/handoff functions also exist.
