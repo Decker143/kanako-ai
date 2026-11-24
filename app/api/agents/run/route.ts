@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const canUseGitHub = capabilities.includes("github_code_execution") && process.env.KANAKO_GITHUB_EXECUTION_ENABLED === "true";
     const github = canUseGitHub ? await createKanakoGitHubTools() : null;
     let taskBranch: string | null = null;
-    const githubTools = github ? {
+    const githubTools = (github ? {
       createTaskBranch: tool({
         description: "Create one isolated branch for this assigned task, based on the configured development branch. Do this before writing any files. Never modify main or the base branch.",
         inputSchema: jsonSchema<{ purpose: string }>({ type: "object", properties: { purpose: { type: "string", minLength: 5, maxLength: 300 } }, required: ["purpose"], additionalProperties: false }),
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
           return github.createPullRequest(title, body, branch);
         },
       }),
-    } : {};
+    } : {}) as import("ai").ToolSet;
     const result = await generateText({
       model: agent.model_name,
       system: [
