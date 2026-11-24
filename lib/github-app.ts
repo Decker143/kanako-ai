@@ -35,6 +35,7 @@ async function installationToken(access: "read" | "write" = "write") {
     method: "POST",
     headers: {
       Accept: "application/vnd.github+json",
+      "User-Agent": "KANAKO-AI",
       Authorization: `Bearer ${jwt}`,
       "X-GitHub-Api-Version": "2022-11-28",
       "Content-Type": "application/json",
@@ -64,6 +65,7 @@ async function githubRequest<T>(token: string, path: string, init: RequestInit =
     ...init,
     headers: {
       Accept: "application/vnd.github+json",
+      "User-Agent": "KANAKO-AI",
       Authorization: `Bearer ${token}`,
       "X-GitHub-Api-Version": "2022-11-28",
       ...(init.body ? { "Content-Type": "application/json" } : {}),
