@@ -16,7 +16,7 @@ export default function OfflinePage() {
     <div className="offline-intro">
       <div className="eyebrow">LOCAL MODE</div>
       <h1>Your private local AI workspace.</h1>
-      <p className="muted">Use this workspace when you are offline. For cloud departments, company records, and online AI services, connect to your secure owner workspace. Local chats and drafts currently remain in this browser and are not yet synchronized with cloud data.</p>
+      <p className="muted">Use this workspace for device-local work when you are offline. Local chats stay on this device. When you are online and signed in, you can use the Sync controls below to send task drafts and AI results to your cloud workspace for review; nothing syncs automatically.</p>
     </div>
     <OfflineAIWorkspace />
     <footer className="muted" style={{fontSize:11,marginTop:24}}>KANAKO AI · Hybrid workspace · Offline mode</footer>
