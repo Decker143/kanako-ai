@@ -11,10 +11,14 @@ declare
   v_user uuid;
   v_org2 uuid := gen_random_uuid();
   v_agent uuid;
+  v_other_agent uuid;
+  v_draft_agent uuid;
   v_task uuid;
   v_run uuid;
   v_memory uuid;
   v_offline_task uuid;
+  v_mismatch_task uuid;
+  v_stale_task uuid;
   v_offline_client uuid := gen_random_uuid();
   v_isolated integer;
   v_review_gate boolean := false;
@@ -23,6 +27,11 @@ declare
   v_retry jsonb;
   v_run_count integer;
   v_task_status text;
+  v_replay_mismatch_rejected boolean := false;
+  v_empty_output_rejected boolean := false;
+  v_draft_agent_rejected boolean := false;
+  v_assignment_mismatch_rejected boolean := false;
+  v_stale_task_rejected boolean := false;
 begin
   select o.id, o.created_by
     into v_org, v_user
@@ -54,6 +63,20 @@ begin
     '["task_execution","local_execution"]'::jsonb, v_user
   )
   returning id into v_agent;
+
+  insert into public.ai_agents(organization_id, name, job_title, status, capabilities, created_by)
+  values (
+    v_org, 'Phase 1 Alternate Regression Agent', 'Regression Test', 'active',
+    '["task_execution","local_execution"]'::jsonb, v_user
+  )
+  returning id into v_other_agent;
+
+  insert into public.ai_agents(organization_id, name, job_title, status, capabilities, created_by)
+  values (
+    v_org, 'Phase 1 Draft Regression Agent', 'Regression Test', 'draft',
+    '["task_execution","local_execution"]'::jsonb, v_user
+  )
+  returning id into v_draft_agent;
 
   -- An AI-generated task cannot be completed until its latest successful run is approved.
   insert into public.tasks(organization_id, title, status, priority, assigned_agent_id, created_by)
@@ -163,10 +186,83 @@ begin
     raise exception 'FAIL offline sync: retry was not marked duplicate';
   end if;
 
+  -- Reusing an idempotency key for a different task must be rejected.
+  insert into public.tasks(organization_id, title, status, priority, created_by)
+  values (v_org, 'Offline Replay Mismatch Regression', 'queued', 'low', v_user)
+  returning id into v_mismatch_task;
+
+  begin
+    perform public.sync_offline_agent_run(
+      v_org, v_offline_client, v_agent, v_mismatch_task,
+      'Different payload for the same local ID', 'test-model'
+    );
+  exception when others then
+    v_replay_mismatch_rejected := true;
+  end;
+  if not v_replay_mismatch_rejected then
+    raise exception 'FAIL offline sync: reused local ID for a different task was accepted';
+  end if;
+
+  -- Empty results and draft employees must never create runs.
+  begin
+    perform public.sync_offline_agent_run(
+      v_org, gen_random_uuid(), v_agent, v_mismatch_task, '   ', 'test-model'
+    );
+  exception when others then
+    v_empty_output_rejected := true;
+  end;
+  if not v_empty_output_rejected then
+    raise exception 'FAIL offline sync: empty output was accepted';
+  end if;
+
+  begin
+    perform public.sync_offline_agent_run(
+      v_org, gen_random_uuid(), v_draft_agent, v_mismatch_task,
+      'Draft employee must not execute', 'test-model'
+    );
+  exception when others then
+    v_draft_agent_rejected := true;
+  end;
+  if not v_draft_agent_rejected then
+    raise exception 'FAIL offline sync: draft employee was allowed to execute';
+  end if;
+
+  -- An employee cannot submit a result for a task assigned to another employee.
+  update public.tasks set assigned_agent_id = v_other_agent
+   where id = v_mismatch_task and organization_id = v_org;
+  begin
+    perform public.sync_offline_agent_run(
+      v_org, gen_random_uuid(), v_agent, v_mismatch_task,
+      'Wrong employee assignment', 'test-model'
+    );
+  exception when others then
+    v_assignment_mismatch_rejected := true;
+  end;
+  if not v_assignment_mismatch_rejected then
+    raise exception 'FAIL offline sync: assignment mismatch was accepted';
+  end if;
+
+  -- Completed/cancelled tasks are stale and cannot accept a new offline result.
+  insert into public.tasks(organization_id, title, status, priority, created_by)
+  values (v_org, 'Offline Stale Task Regression', 'completed', 'low', v_user)
+  returning id into v_stale_task;
+  begin
+    perform public.sync_offline_agent_run(
+      v_org, gen_random_uuid(), v_agent, v_stale_task,
+      'Stale task must not sync', 'test-model'
+    );
+  exception when others then
+    v_stale_task_rejected := true;
+  end;
+  if not v_stale_task_rejected then
+    raise exception 'FAIL offline sync: completed task accepted a new result';
+  end if;
+
   raise notice 'PASS: organization isolation';
   raise notice 'PASS: AI task review gate and approved completion';
   raise notice 'PASS: learning memory pending gate and owner approval';
   raise notice 'PASS: offline sync atomicity and duplicate retry';
+  raise notice 'PASS: offline sync rejects mismatched replay, empty output, draft employee, wrong assignee, and stale task';
 end
 $$;
 
