@@ -41,74 +41,20 @@ export async function POST(request: Request) {
     const model = typeof item.model === "string" ? item.model.slice(0, 120) : "local-model";
     if (!isUuid(id) || !isUuid(agentId) || !isUuid(taskId) || !output) continue;
 
-    const { data: existing } = await supabase.from("agent_runs").select("id,status,task_id,agent_id")
-      .eq("organization_id", organizationId).filter("output->>offline_client_id", "eq", id).maybeSingle();
-    if (existing) {
-      if (existing.status !== "succeeded" || existing.task_id !== taskId || existing.agent_id !== agentId) {
-        return NextResponse.json({ error: "A previous sync attempt for one local run did not complete. Inspect that run in AI Workforce before retrying." }, { status: 409 });
-      }
-      syncedIds.push(id);
-      continue;
-    }
-
-    const [{ data: agent }, { data: task }] = await Promise.all([
-      supabase.from("ai_agents").select("id,capabilities,status").eq("id", agentId)
-        .eq("organization_id", organizationId).maybeSingle(),
-      supabase.from("tasks").select("id,title,description,status,assigned_agent_id")
-        .eq("id", taskId).eq("organization_id", organizationId).maybeSingle(),
-    ]);
-    if (!agent || !["active", "draft"].includes(agent.status) || !Array.isArray(agent.capabilities) || !agent.capabilities.includes("task_execution") || !agent.capabilities.includes("local_execution")) {
-      return NextResponse.json({ error: "An offline result refers to an employee who is no longer active or authorized." }, { status: 409 });
-    }
-    if (!task || !["queued", "blocked"].includes(task.status) || (task.assigned_agent_id && task.assigned_agent_id !== agentId)) {
-      return NextResponse.json({ error: "An offline result refers to a task that is no longer available for execution." }, { status: 409 });
-    }
-
-    const now = new Date().toISOString();
-    const { data: run, error: runError } = await supabase.from("agent_runs").insert({
-      organization_id: organizationId,
-      agent_id: agentId,
-      task_id: taskId,
-      status: "succeeded",
-      input: { task_title: task.title, task_description: task.description, offline: true },
-      output: { text: output, model, offline_client_id: id, source: "device_local_inference" },
-      created_by: user.id,
-      started_at: now,
-      finished_at: now,
-    }).select("id").single();
-
-    if (runError) {
-      if (runError.code === "23505") {
-        syncedIds.push(id);
-        continue;
-      }
-      return NextResponse.json({ error: "An offline AI result could not be recorded. Successfully synced items can safely be retried." }, { status: 500 });
-    }
-
-    const { data: updatedTask, error: taskError } = await supabase.from("tasks").update({
-      status: "in_review",
-      assigned_agent_id: agentId,
-      completed_at: null,
-    }).eq("id", taskId).eq("organization_id", organizationId).in("status", ["queued", "blocked"])
-      .select("id").maybeSingle();
-    if (taskError || !updatedTask) {
-      await supabase.from("agent_runs").update({
-        status: "failed",
-        error: "Offline result was recorded but the task could not enter human review.",
-        finished_at: new Date().toISOString(),
-      }).eq("id", run.id).eq("organization_id", organizationId);
-      return NextResponse.json({ error: "An offline result was saved but its task could not enter human review. Please inspect the AI Workforce run history." }, { status: 409 });
-    }
-
-    await supabase.from("activity_logs").insert({
-      organization_id: organizationId,
-      actor_user_id: user.id,
-      actor_agent_id: agentId,
-      action: "ai_agent.offline_run_synced",
-      entity_type: "agent_run",
-      entity_id: run.id,
-      details: { task_id: taskId, model, local_run_id: id },
+    const { error } = await supabase.rpc("sync_offline_agent_run", {
+      p_organization_id: organizationId,
+      p_offline_client_id: id,
+      p_agent_id: agentId,
+      p_task_id: taskId,
+      p_output: output,
+      p_model: model,
     });
+    if (error) {
+      return NextResponse.json({
+        error: "An offline result could not be synchronized. Any earlier results in this batch are safe to retry.",
+        syncedIds,
+      }, { status: 409 });
+    }
     syncedIds.push(id);
   }
 
