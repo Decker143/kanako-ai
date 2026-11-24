@@ -170,3 +170,17 @@ Important scope note: this cloud-side introspection is a schema inventory, not y
 The Production catalog contains 59 public-schema foreign-key constraints. The dependency graph includes the expected base objects (`organizations`, `organization_members`, `profiles`, `departments`, `ai_agents`, `tasks`, `agent_runs`) and downstream modules for learning/memory, approvals, workflows, conversations/messages, office meetings/commands, reports, and activity logs. Several constraints also reference Supabase-managed `auth.users`, so a Dev reconstruction must preserve the target project's Auth integration rather than attempting to recreate managed Auth tables.
 
 A safe creation sequence should begin with organization/profile/department foundations, then agents and tasks, then agent runs and task updates, followed by learning/memory, approvals, workflow, conversations/messages, office modules, reports, and activity logs. Cyclic or mutually dependent constraints should be added after their base tables exist. This is a planning order only; no DDL has been applied.
+
+
+## Follow-up reconstruction artifacts — 2026-11-24
+
+A structured read-only Production catalog snapshot and reconstruction reference have now been saved on this audit branch:
+
+- [Production catalog JSON](schema-baseline/production-catalog.json) — 21 public tables, 206 columns, 115 constraints, 81 total indexes, 72 policies, 10 triggers, 8 public/private functions, 546 table-grant entries, 21 routine-grant entries, extension inventory, and 34 migration-history records.
+- [Production schema reference SQL](schema-baseline/production-schema-reference.sql) — generated table/constraint/function/trigger/RLS/index/grant definitions. This is a clean-baseline reference, not a verified `pg_dump` and not safe to execute as-is against the existing Dev fixtures.
+- [Migration reconciliation ledger](schema-baseline/MIGRATION_RECONCILIATION.md) — maps 34 Production migration history entries against 30 repository SQL files: 3 exact version+name matches, 25 same descriptive names with version mismatch, 2 renamed candidates requiring semantic review, and 4 genuinely missing repository files.
+- [Dev reconstruction plan](schema-baseline/DEV_RECONSTRUCTION_PLAN.md) — additive migration strategy that preserves the four existing Dev fixture tables and their seven test policies.
+
+Correction to the earlier six-unmatched summary: two of those six now have renamed repository candidates (`restrict_agent_run_mutations` and `seed_kanako_ceo_draft`); they are not treated as absent, but their SQL must still be checked against the live Production definitions. Four Production migration names have no repository candidate: `initial_kanako_ai_platform`, `auth_profile_and_organization_bootstrap`, `seed_default_departments_on_org_create`, and `tighten_function_execute_permissions`.
+
+The generated SQL reference includes 58 non-constraint indexes; the catalog's 81 total indexes include indexes backing constraints. The Dev project remains unchanged: 4 tables, 28 columns, 3 constraints, 3 indexes, 7 test policies, 0 triggers, and 1 function. No DDL or data writes were performed.
