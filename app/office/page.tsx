@@ -28,7 +28,7 @@ export default async function OfficePage() {
     organizationName={organization?.name ?? "KANAKO AI"}
     organizationId={orgId}
     agents={(agents ?? []).map(agent => ({
-      id: agent.id, name: agent.name, jobTitle: agent.job_title,
+      id: agent.id, name: agent.name ?? "Unnamed AI employee", jobTitle: agent.job_title ?? "Role not configured",
       description: agent.description ?? "", status: agent.status,
       availability: agent.availability_status ?? "unknown",
       departmentId: agent.department_id,
@@ -36,7 +36,7 @@ export default async function OfficePage() {
     }))}
     departments={(departments ?? []).map(department => ({ id: department.id, name: department.name, color: department.color ?? "#8b7cff" }))}
     taskContextStatus={taskResult.error ? "unavailable" : (taskResult.data?.length ? "loaded" : "empty")}
-    tasks={(taskResult.data ?? []).map(task => ({ id: task.id, title: task.title, status: task.status, priority: task.priority, agentId: task.assigned_agent_id, departmentId: task.department_id, updatedAt: task.updated_at }))}
+    tasks={(taskResult.data ?? []).map(task => ({ id: task.id, title: task.title ?? "Untitled task", status: task.status, priority: task.priority, agentId: task.assigned_agent_id, departmentId: task.department_id, updatedAt: task.updated_at }))}
     runs={(runs ?? []).map(run => ({ id: run.id, agentId: run.agent_id, taskId: run.task_id, status: run.status, createdAt: run.created_at, startedAt: run.started_at, finishedAt: run.finished_at }))}
     officeCommands={(officeCommands ?? []).map(command => ({ id: command.id, agentId: command.agent_id, command: command.command, destination: command.destination, status: command.status, createdAt: command.created_at }))}
     meetings={(meetings ?? []).map(meeting => ({
