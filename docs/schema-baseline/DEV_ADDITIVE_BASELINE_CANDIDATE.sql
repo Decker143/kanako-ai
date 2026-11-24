@@ -740,7 +740,11 @@ begin
 end;
 $function$;
 
--- 8. Restore Production triggers.
+-- 8. Restore the Production Auth profile-creation trigger and 10 public triggers.
+-- Production has this custom trigger on auth.users; Dev currently has none.
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.ai_agents FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.approvals FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.automation_workflows FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -1068,7 +1072,8 @@ COMMIT;
 -- Existing-table foreign keys marked NOT VALID: 14
 -- Standalone indexes added: 58
 -- Functions restored: 8
--- Triggers restored: 10
+-- Public triggers restored: 10
+-- Auth user trigger restored: 1
 -- RLS enable statements: 21
 -- Production policies added: 72
 -- Function REVOKE statements: 7
