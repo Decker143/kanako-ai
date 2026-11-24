@@ -190,3 +190,14 @@ export async function checkKanakoGitHubConnection() {
     baseBranch: process.env.KANAKO_GITHUB_BASE_BRANCH || DEFAULT_BASE_BRANCH,
   };
 }
+
+export async function checkKanakoGitHubWritePermissions() {
+  assertRepo();
+  // Mint a short-lived write-scoped token only to inspect the granted scope.
+  // This token is never used to read or mutate repository content.
+  const tokenResult = await installationToken("write");
+  return {
+    grantedPermissions: tokenResult.permissions,
+    accessLevel: "write-token-verified-no-repository-changes",
+  };
+}
