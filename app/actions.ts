@@ -342,7 +342,7 @@ export async function updateAgentCapabilities(formData: FormData) {
   }
   const id = String(formData.get("agent_id") ?? "");
   const requested = formData.getAll("capabilities").map(value => String(value));
-  const allowed = new Set(["task_execution", "knowledge_read", "department_read", "internet_research", "local_execution"]);
+  const allowed = new Set(["task_execution", "knowledge_read", "department_read", "internet_research", "local_execution", "github_code_execution"]);
   const capabilities = [...new Set(requested)].filter(value => allowed.has(value));
   if (!id) return;
   const { data: agent } = await supabase.from("ai_agents").select("id").eq("id", id)
@@ -357,7 +357,10 @@ export async function updateAgentCapabilities(formData: FormData) {
 }
 
 export async function updateAgentStatus(formData: FormData) {
-  const { supabase, user, organizationId } = await context();
+  const { supabase, user, organizationId, role } = await context();
+  if (!["owner", "admin"].includes(role)) {
+    redirect("/?view=agents&error=" + encodeURIComponent("Only workspace owners and admins can change AI employee status."));
+  }
   const id = String(formData.get("agent_id") ?? "");
   const status = String(formData.get("status") ?? "draft");
   if (!id || !["draft", "paused", "active"].includes(status)) return;
@@ -369,7 +372,8 @@ export async function updateAgentStatus(formData: FormData) {
     if (!capabilities.includes("task_execution")) redirect("/?view=agents&error=" + encodeURIComponent("Grant the Task execution permission before activating this employee."));
   }
   const { error } = await supabase.from("ai_agents").update({ status }).eq("id", id).eq("organization_id", organizationId);
-  if (!error) await log(supabase, organizationId, user.id, "agent.status_updated", "ai_agent", id);
+  if (error) redirect("/?view=agents&error=" + encodeURIComponent("Could not update AI employee status."));
+  await log(supabase, organizationId, user.id, "agent.status_updated", "ai_agent", id);
   revalidatePath("/");
   redirect("/?view=agents&success=" + encodeURIComponent("AI employee status updated successfully."));
 }
