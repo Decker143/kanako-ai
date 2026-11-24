@@ -131,7 +131,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
       remainingCapacity: Math.max(0, maxConcurrentTasks - assignedTasks.length),
       highPriorityCount: assignedTasks.filter(task => ["high", "urgent"].includes(task.priority)).length,
     };
-  }).sort((a, b) => b.assignedCount - a.assignedCount || a.agent.name.localeCompare(b.agent.name));
+  }).sort((a, b) => b.assignedCount - a.assignedCount || (a.agent.name ?? "").localeCompare(b.agent.name ?? ""));
   const pendingApprovalItems = (approvals ?? []).filter(approval => approval.status === "pending").slice(0, 5);
   const ceoProfile = (agents ?? []).find(agent => agent.job_title === "AI Chief Executive Officer");
   const executiveAlerts = [
