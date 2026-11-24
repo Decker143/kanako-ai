@@ -15,7 +15,7 @@ Generated 2026-11-24 after read-only comparison of Production and the existing D
 | Public/private functions | 8 | 1 |
 | Sequences in public/private | 0 | 0 |
 
-The four Dev tables are `organization_members`, `ai_agents`, `tasks`, and `agent_runs`. The first three are intentionally reduced test fixtures; `agent_runs` has the same 12 column names as Production. Existing Dev has seven `test_*` policies, three indexes, three constraints, and one function. Preserve these test objects until an explicit replacement strategy has been approved.
+The four Dev tables are `organization_members`, `ai_agents`, `tasks`, and `agent_runs`. The `organization_members`, `ai_agents`, and `tasks` tables are reduced test fixtures; `agent_runs` has the same 12 column names as Production. Existing Dev has seven `test_*` policies, three indexes, three constraints, and one function. Preserve these test objects until an explicit replacement strategy has been approved.
 
 ## Recommended approach
 
@@ -35,7 +35,7 @@ The four Dev tables are `organization_members`, `ai_agents`, `tasks`, and `agent
 
 ## Important limitations before applying
 
-The cloud-generated SQL reference captures table columns/defaults, 115 constraints, 58 non-constraint indexes, 72 RLS policies, 8 function definitions, 10 triggers, table grants, and routine grants. It is not yet a byte-for-byte `pg_dump`: schema-level ACLs/default privileges, role attributes, extension setup details, Supabase-managed Auth/Storage objects, publication settings, and other platform-managed configuration require a separate review.
+The cloud-generated SQL reference contains 21 `CREATE TABLE` statements, 115 `ADD CONSTRAINT` statements, 53 standalone `CREATE INDEX` statements, 72 RLS policies, 8 function definitions, 10 triggers, and 128 grant statements. The live catalog reports 81 indexes total; do not describe all 81 as standalone indexes because some indexes back primary-key/unique constraints. The reference also includes table and routine grants. It is not yet a byte-for-byte `pg_dump`: schema-level ACLs/default privileges, role attributes, extension setup details, Supabase-managed Auth/Storage objects, publication settings, and other platform-managed configuration require a separate review.
 
 The SQL reference is intentionally a **reference artifact**. It uses `CREATE TABLE` and `ALTER TABLE ADD CONSTRAINT` statements for a clean baseline and must not be run as-is against the existing fixture Dev project because several tables already exist there.
 
