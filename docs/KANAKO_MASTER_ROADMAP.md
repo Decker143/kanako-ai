@@ -225,3 +225,17 @@ Safety status: all testing and deployment work above used Dev/Preview only. No P
 - Offline and online flows tested on real supported browsers/devices.
 - AI/provider spending explicitly approved before any billable model call.
 - Production deployment explicitly approved by the owner.
+
+
+## Dev security and performance review — 2026-11-25
+
+Reviewed Supabase security and performance advisors for the Dev project; no Production resources were changed.
+
+- [Reviewed; intentional with caveat] `public.create_organization(text)` is a SECURITY DEFINER function callable by authenticated users. Its definition sets an empty search_path, requires `auth.uid()`, validates the organization name, and creates the caller as owner together with the nine departments and draft Kanako profile. EXECUTE is granted to authenticated/service_role/postgres, not anon or PUBLIC. SECURITY DEFINER is currently required for the owner-bootstrap inserts under RLS. Do not switch it to SECURITY INVOKER or revoke authenticated EXECUTE without designing and testing an alternative onboarding path. Keep this as a documented, reviewed exception; re-evaluate before Production.
+- [Configuration follow-up] Supabase Auth leaked-password protection is disabled in Dev. This is a project Auth setting, not a schema migration. Enable and verify it before any Production release; no setting was changed during this review.
+- [Performance warning] Seven multiple-permissive-policy findings include redundant `test_*` policies alongside the app's canonical policies on `agent_runs`, `ai_agents`, `organization_members`, and `tasks`. Their predicates were inspected and overlap with the canonical membership/admin policies. Do not drop them automatically: first establish their origin and confirm the canonical policies fully cover each intended access path, then prepare a Dev-only cleanup migration and regression test it.
+- [Performance info] Five foreign-key indexes are currently missing on `office_commands.created_by` and `task_updates` actor/target/task references. Review query patterns before adding indexes; this is optimization, not a Phase 1 release blocker.
+- [Performance info] The advisor reports 36 unused indexes. The Dev workspace has very low activity, so "unused" is not evidence that these indexes are unnecessary. Do not drop them based on this snapshot.
+- Existing regression suite was inspected: it exercises organization isolation, owner/admin authorization, atomic plan approval, task review, learning permissions, capacity boundaries, and offline sync idempotency. Browser-level offline and cross-workspace tests remain open.
+
+No database DDL, Auth configuration, Production setting, or paid service was changed during this review.
