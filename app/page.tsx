@@ -16,6 +16,7 @@ import { CEODelegateControl } from "@/components/ceo-delegate-control";
 import { TaskSaveButton } from "@/components/task-save-button";
 import { TaskUpdateButton } from "@/components/task-update-button";
 import { OfflineOrgContext } from "@/components/offline-org-context";
+import { FlashNotice } from "@/components/flash-notice";
 
 const nav = [
   ["overview","Overview","◫"],["agents","AI Workforce","✧"],["departments","Departments","▦"],
@@ -151,9 +152,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     </aside>
     <main className="main">
       <div className="topline"><div><div className="eyebrow">KANAKO AI / {heading[view]}</div><h1>{activeOrg.name}</h1><p className="muted" style={{margin:0}}>Your company operations, coordinated in one intelligent workspace.</p></div><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",justifyContent:"flex-end"}}>{(organizations?.length ?? 0)>1&&<form action={setActiveOrganization} style={{display:"flex",gap:6,alignItems:"center"}}><select className="field" name="organizationId" defaultValue={orgId} aria-label="Active organization">{organizations?.map(org=><option key={org.id} value={org.id}>{org.name}</option>)}</select><button className="btn secondary" type="submit">Switch</button></form>}<span className="pill">● Supabase connected</span></div></div>
-      {params.error&&<div className="panel error" role="alert" style={{marginBottom:18}}>{params.error}</div>}
-      {params.success&&<div className="panel" role="status" aria-live="polite" style={{marginBottom:18,border:"1px solid #23845b",background:"rgba(35,132,91,.10)"}}>✓ {params.success}</div>}
-      {params.message&&<div className="panel" role="status" aria-live="polite" style={{marginBottom:18,border:"1px solid #23845b",background:"rgba(35,132,91,.10)"}}>✓ {params.message}</div>}
+      <FlashNotice error={params.error} success={params.success ?? params.message} />
       {view==="overview"&&<>
         <div className="grid">
           <div className="panel stat"><div className="muted">Departments</div><strong>{departments?.length??0}</strong><span className="muted">Configured teams</span></div>
