@@ -96,7 +96,7 @@ export async function createTask(formData: FormData) {
   if (error) redirect("/?view=tasks&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "task.created", "task", data.id);
   revalidatePath("/");
-  redirect("/?view=tasks");
+  redirect("/?view=tasks&success=" + encodeURIComponent("Task created successfully."));
 }
 
 export async function updateTaskStatus(formData: FormData) {
@@ -310,7 +310,7 @@ export async function createAgent(formData: FormData) {
   if (error) redirect("/?view=agents&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "agent.created_as_draft", "ai_agent", data.id);
   revalidatePath("/");
-  redirect("/?view=agents");
+  redirect("/?view=agents&success=" + encodeURIComponent("AI employee profile created as a draft."));
 }
 
 export async function updateAgentProfile(formData: FormData) {
@@ -371,6 +371,7 @@ export async function updateAgentStatus(formData: FormData) {
   const { error } = await supabase.from("ai_agents").update({ status }).eq("id", id).eq("organization_id", organizationId);
   if (!error) await log(supabase, organizationId, user.id, "agent.status_updated", "ai_agent", id);
   revalidatePath("/");
+  redirect("/?view=agents&success=" + encodeURIComponent("AI employee status updated successfully."));
 }
 
 export async function reviewAgentRun(formData: FormData) {
@@ -492,7 +493,7 @@ export async function reviewAgentRun(formData: FormData) {
     decision === "approved" ? "ai_agent.work_approved" : "ai_agent.revision_requested",
     "agent_run", run.id);
   revalidatePath("/");
-  redirect("/?view=agents");
+  redirect("/?view=agents&success=" + encodeURIComponent(decision === "approved" ? "AI work approved. The review and task status were saved." : "Revision request saved and returned to the task queue."));
 }
 
 export async function reviewAgentMemory(formData: FormData) {
@@ -527,7 +528,7 @@ export async function reviewAgentMemory(formData: FormData) {
     decision === "approved" ? "ai_agent.memory_approved" : "ai_agent.memory_rejected",
     "agent_memory", memory.id);
   revalidatePath("/");
-  redirect("/?view=agents");
+  redirect("/?view=agents&success=" + encodeURIComponent(decision === "approved" ? "Learning memory approved." : "Learning memory rejected."));
 }
 
 export async function createWorkflow(formData: FormData) {
@@ -555,7 +556,7 @@ export async function createWorkflow(formData: FormData) {
   if (error) redirect("/?view=workflows&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "workflow.created_as_draft", "workflow", data.id);
   revalidatePath("/");
-  redirect("/?view=workflows");
+  redirect("/?view=workflows&success=" + encodeURIComponent("Workflow saved as a draft."));
 }
 
 export async function updateWorkflowStatus(formData: FormData) {
@@ -578,8 +579,10 @@ export async function updateWorkflowStatus(formData: FormData) {
   }
   if (!["owner", "admin"].includes(role)) redirect("/?view=workflows&error=" + encodeURIComponent("Only workspace owners and admins can change workflow status."));
   const { error } = await supabase.from("automation_workflows").update({ status }).eq("id", id).eq("organization_id", organizationId);
-  if (!error) await log(supabase, organizationId, user.id, "workflow.status_updated", "workflow", id);
+  if (error) redirect("/?view=workflows&error=" + encodeURIComponent("Could not update workflow: " + error.message));
+  await log(supabase, organizationId, user.id, "workflow.status_updated", "workflow", id);
   revalidatePath("/");
+  redirect("/?view=workflows&success=" + encodeURIComponent("Workflow status updated to " + status + "."));
 }
 
 export async function createApproval(formData: FormData) {
@@ -595,7 +598,7 @@ export async function createApproval(formData: FormData) {
   if (error) redirect("/?view=approvals&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "approval.requested", "approval", data.id);
   revalidatePath("/");
-  redirect("/?view=approvals");
+  redirect("/?view=approvals&success=" + encodeURIComponent("Approval request submitted successfully."));
 }
 
 export async function decideApproval(formData: FormData) {
@@ -608,8 +611,10 @@ export async function decideApproval(formData: FormData) {
   const { error } = await supabase.from("approvals").update({
     status, decision_note: note || null, decided_by: user.id, decided_at: new Date().toISOString(),
   }).eq("id", id).eq("organization_id", organizationId).eq("status", "pending");
-  if (!error) await log(supabase, organizationId, user.id, "approval." + status, "approval", id);
+  if (error) redirect("/?view=approvals&error=" + encodeURIComponent("Could not save approval decision: " + error.message));
+  await log(supabase, organizationId, user.id, "approval." + status, "approval", id);
   revalidatePath("/");
+  redirect("/?view=approvals&success=" + encodeURIComponent("Approval decision saved: " + status + "."));
 }
 
 export async function createKnowledgeDocument(formData: FormData) {
@@ -624,7 +629,7 @@ export async function createKnowledgeDocument(formData: FormData) {
   if (error) redirect("/?view=knowledge&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "knowledge_document.created", "knowledge_document", data.id);
   revalidatePath("/");
-  redirect("/?view=knowledge");
+  redirect("/?view=knowledge&success=" + encodeURIComponent("Knowledge document saved successfully."));
 }
 
 export async function generateExecutiveReport() {
@@ -796,7 +801,7 @@ export async function createReport(formData: FormData) {
   if (error) redirect("/?view=reports&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "report.created", "report", data.id);
   revalidatePath("/");
-  redirect("/?view=reports");
+  redirect("/?view=reports&success=" + encodeURIComponent("Report saved successfully."));
 }
 
 export async function createConversation(formData: FormData) {
@@ -807,7 +812,7 @@ export async function createConversation(formData: FormData) {
   }).select("id").single();
   if (error) redirect("/?view=chat&error=" + encodeURIComponent(error.message));
   revalidatePath("/");
-  redirect("/?view=chat&conversation=" + data.id);
+  redirect("/?view=chat&conversation=" + data.id + "&success=" + encodeURIComponent("New conversation created."));
 }
 
 export async function saveChatMessage(formData: FormData) {
@@ -824,7 +829,7 @@ export async function saveChatMessage(formData: FormData) {
   if (error) redirect("/?view=chat&conversation=" + conversationId + "&error=" + encodeURIComponent(error.message));
   await log(supabase, organizationId, user.id, "chat.message_saved", "conversation", conversationId);
   revalidatePath("/");
-  redirect("/?view=chat&conversation=" + conversationId);
+  redirect("/?view=chat&conversation=" + conversationId + "&success=" + encodeURIComponent("Message saved successfully."));
 }
 
 export async function signOut() {
