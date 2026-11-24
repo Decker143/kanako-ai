@@ -67,16 +67,37 @@ Read-only validation of the existing Dev rows found:
 
 **Implication:** Do not add validated foreign keys to the existing fixture rows as-is; they would fail. A safe additive candidate must either use carefully reviewed `NOT VALID` foreign keys (which still enforce new inserts/updates but leave existing rows unvalidated) or obtain explicit approval for a synthetic fixture-data repair strategy. Do not silently rewrite fixture values or create Auth users. The required `name`, `job_title`, and `title` columns also need a deliberate compatibility treatment; adding them nullable is not exact Production parity, while backfilling changes fixture data. Keep this as an explicit pre-application decision gate.
 
-## Migration candidate gate
+## Static comparison results
 
-A candidate SQL migration is **not yet ready to apply**. Outstanding static checks:
-1. Verify all 115 constraint definitions against the live schema reference and ensure no duplicate or conflicting names.
-2. Confirm all 21 table definitions and 206 columns, including defaults, nullability, identity/generated behavior and data types.
-3. Compare all 72 RLS policies by expression, command, role and permissive/restrictive mode against the generated SQL reference.
-4. Compare all eight function definitions, owners, SECURITY DEFINER/search_path settings, and exact routine EXECUTE grants.
-5. Confirm all 10 triggers and their referenced functions.
-6. Recreate the `private` schema and its narrowly scoped ACL only after its full object inventory and function dependencies are reviewed.
-7. Check the additive DDL against existing Dev fixture data; preserve all four tables, seven test policies, fixture grants, and the Dev-only reservation function.
+The generated reference was compared against live Production catalog definitions:
+- 206/206 column definitions matched by table, name, type, nullability and default.
+- 115/115 constraint names and definitions matched.
+- 58/58 standalone index definitions matched.
+- 72/72 RLS policy expressions matched, including command, role and permissive mode.
+- 8/8 function definitions matched.
+- 10/10 trigger definitions matched.
+- 78/78 table-grant sets and 21/21 routine-grant entries matched.
+- 21/21 public tables have RLS enabled.
+- The schema-level ACL and default-privilege comparison was performed separately. The candidate adds the missing `private` schema usage grant and explicit routine revokes; the generated reference itself omits those revokes.
+
+## Additive candidate prepared — not applied
+
+`docs/schema-baseline/DEV_ADDITIVE_BASELINE_CANDIDATE.sql` is prepared on the audit branch as a one-shot review artifact. Its inventory is:
+- 17 missing tables and 21 missing columns.
+- Three missing shared-column defaults restored.
+- 112 missing constraints.
+- 14 foreign keys on populated fixture tables marked `NOT VALID` to preserve existing orphaned references while enforcing new writes.
+- 58 standalone indexes, 8 functions, 10 triggers, 72 Production policies, 78 table grants, 21 routine grants, and 7 explicit function revokes.
+- The existing four fixture tables, seven test policies, current grants and Dev-only reservation function are preserved.
+- `ai_agents.name`, `ai_agents.job_title`, and `tasks.title` remain nullable because the populated fixture rows have no values and Production has no defaults for those required columns.
+
+The candidate is deliberately outside `supabase/migrations`, is not idempotent for constraints/triggers/policies, and has **not** been executed. Do not run it twice or apply it without reviewing the compatibility exceptions.
+
+## Remaining pre-application decision
+
+The only material schema-parity exceptions are the three nullable required columns and 14 unvalidated foreign keys needed to preserve the current fixture rows. Recommendation: preserve the existing test data, use the candidate's staged compatibility treatment, and validate those constraints after an explicitly approved fixture repair/cleanup. A synthetic Dev Auth identity is also needed for Phase 1 E2E testing and must be created only in a separately approved controlled test.
+
+The Production migration ledger still differs from repository migration versions/names. The candidate is based on the verified final live catalog, not migration replay. Do not run `db push`, reset, or replay migrations to reconcile that ledger.
 
 ## Decision
 
