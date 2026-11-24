@@ -239,3 +239,16 @@ Reviewed Supabase security and performance advisors for the Dev project; no Prod
 - Existing regression suite was inspected: it exercises organization isolation, owner/admin authorization, atomic plan approval, task review, learning permissions, capacity boundaries, and offline sync idempotency. Browser-level offline and cross-workspace tests remain open.
 
 No database DDL, Auth configuration, Production setting, or paid service was changed during this review.
+
+
+## Phase 1 follow-up review — 2026-11-25
+
+- [Origin not established; cleanup held] Rechecked all 32 tracked SQL migration files on `feature/phase1-atomic-project-plan-approval`: none defines the seven Dev `test_*` RLS policies reported by the advisor. The repository currently has incremental feature migrations but no initial full-schema baseline, so the current Git history cannot establish who/what originally created those policies. Do not drop them until the source of the Dev-only policies is confirmed and a rollback plan is reviewed.
+- [Redundancy confirmed in current Dev policy catalog] The seven policies are on `agent_runs` (insert/select), `ai_agents` (select/update), `organization_members` (select), and `tasks` (select/update). Each overlaps a canonical app policy for the same operation. Canonical policies use the shared `private.is_org_member` / `private.has_org_role` helpers; the `test_*` policies repeat membership checks directly against `organization_members`. The `test_members_read` predicate is narrower than the canonical `members_select_org` policy. These are performance/redundancy warnings, not evidence of a demonstrated authorization bypass. No policy was dropped or modified.
+- [Assignment guard reviewed] The Dev `assign_task_to_agent` function locks the selected employee row before counting open assignments, then validates same-workspace employee/task, owner/admin caller, active status, availability, configured model, `task_execution` capability, queued/blocked task state, and `max_concurrent_tasks`. Locking the employee row serializes concurrent assignments to that employee before the capacity count. The existing rollback-only capacity-boundary test passed. The function does not independently enforce skill-tag or department-fit matching; those remain selection/ranking responsibilities in the CEO delegation layer and should be covered by app-level tests before treating matching as fully verified.
+- [Scope and safety] This was read-only inspection of Dev and GitHub. No RLS policy, function, schema, Auth setting, Production resource, or paid service was changed.
+
+Next:
+1. Confirm the historical source of the seven `test_*` policies if an authoritative setup script or earlier baseline can be recovered. Until then, retain them and keep the warning documented.
+2. Add explicit app-level regression coverage for skill/department fit and multi-assignment concurrency before calling workload balancing complete.
+3. Keep browser-level offline and cross-workspace tests open; do not mark them passed without a supported browser test run.
