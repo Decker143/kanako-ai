@@ -25,6 +25,8 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm install
+      - name: Assignment ranking tests
+        run: npm run test:assignment
       - name: Type check
         run: npm run typecheck
       - name: Lint
