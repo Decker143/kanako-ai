@@ -1005,6 +1005,15 @@ export type Database = {
         }
         Returns: Json
       }
+      reserve_agent_task_run: {
+        Args: {
+          p_agent_id: string
+          p_input: Json
+          p_organization_id: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
       create_organization: { Args: { org_name: string }; Returns: string }
     }
     Enums: {
