@@ -14,35 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      office_commands: {
-        Row: { id: string; organization_id: string; agent_id: string; command: string; destination: string; status: string; created_by: string; created_at: string; completed_at: string | null }
-        Insert: { id?: string; organization_id: string; agent_id: string; command: string; destination: string; status?: string; created_by: string; created_at?: string; completed_at?: string | null }
-        Update: { id?: string; organization_id?: string; agent_id?: string; command?: string; destination?: string; status?: string; created_by?: string; created_at?: string; completed_at?: string | null }
-        Relationships: [
-          { foreignKeyName: "office_commands_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
-          { foreignKeyName: "office_commands_agent_id_fkey"; columns: ["agent_id"]; isOneToOne: false; referencedRelation: "ai_agents"; referencedColumns: ["id"] }
-        ]
-      }
-
-      office_meetings: {
-        Row: { id: string; organization_id: string; title: string; agenda: string; status: string; scheduled_for: string | null; started_at: string | null; ended_at: string | null; notes: string; decisions: string; action_items: Json; created_by: string; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; title: string; agenda?: string; status?: string; scheduled_for?: string | null; started_at?: string | null; ended_at?: string | null; notes?: string; decisions?: string; action_items?: Json; created_by: string; created_at?: string; updated_at?: string }
-        Update: { id?: string; organization_id?: string; title?: string; agenda?: string; status?: string; scheduled_for?: string | null; started_at?: string | null; ended_at?: string | null; notes?: string; decisions?: string; action_items?: Json; created_by?: string; created_at?: string; updated_at?: string }
-        Relationships: [
-          { foreignKeyName: "office_meetings_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
-        ]
-      }
-      office_meeting_attendees: {
-        Row: { id: string; organization_id: string; meeting_id: string; agent_id: string; attendance_status: string; created_at: string }
-        Insert: { id?: string; organization_id: string; meeting_id: string; agent_id: string; attendance_status?: string; created_at?: string }
-        Update: { id?: string; organization_id?: string; meeting_id?: string; agent_id?: string; attendance_status?: string; created_at?: string }
-        Relationships: [
-          { foreignKeyName: "office_meeting_attendees_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
-          { foreignKeyName: "office_meeting_attendees_meeting_id_fkey"; columns: ["meeting_id"]; isOneToOne: false; referencedRelation: "office_meetings"; referencedColumns: ["id"] },
-          { foreignKeyName: "office_meeting_attendees_agent_id_fkey"; columns: ["agent_id"]; isOneToOne: false; referencedRelation: "ai_agents"; referencedColumns: ["id"] }
-        ]
-      }
-
       activity_logs: {
         Row: {
           action: string
@@ -316,11 +287,11 @@ export type Database = {
           description: string | null
           id: string
           instructions: string | null
-          job_title: string
+          job_title: string | null
           max_concurrent_tasks: number
           model_name: string | null
           model_provider: string | null
-          name: string
+          name: string | null
           organization_id: string
           skills: string[]
           status: string
@@ -336,11 +307,11 @@ export type Database = {
           description?: string | null
           id?: string
           instructions?: string | null
-          job_title: string
+          job_title?: string | null
           max_concurrent_tasks?: number
           model_name?: string | null
           model_provider?: string | null
-          name: string
+          name?: string | null
           organization_id: string
           skills?: string[]
           status?: string
@@ -356,11 +327,11 @@ export type Database = {
           description?: string | null
           id?: string
           instructions?: string | null
-          job_title?: string
+          job_title?: string | null
           max_concurrent_tasks?: number
           model_name?: string | null
           model_provider?: string | null
-          name?: string
+          name?: string | null
           organization_id?: string
           skills?: string[]
           status?: string
@@ -664,6 +635,165 @@ export type Database = {
           },
         ]
       }
+      office_commands: {
+        Row: {
+          agent_id: string
+          command: string
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          destination: string
+          id: string
+          organization_id: string
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          command: string
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          destination: string
+          id?: string
+          organization_id: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string
+          command?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          destination?: string
+          id?: string
+          organization_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_commands_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_commands_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_meeting_attendees: {
+        Row: {
+          agent_id: string
+          attendance_status: string
+          created_at: string
+          id: string
+          meeting_id: string
+          organization_id: string
+        }
+        Insert: {
+          agent_id: string
+          attendance_status?: string
+          created_at?: string
+          id?: string
+          meeting_id: string
+          organization_id: string
+        }
+        Update: {
+          agent_id?: string
+          attendance_status?: string
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_meeting_attendees_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_meeting_attendees_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "office_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_meeting_attendees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_meetings: {
+        Row: {
+          action_items: Json
+          agenda: string
+          created_at: string
+          created_by: string
+          decisions: string
+          ended_at: string | null
+          id: string
+          notes: string
+          organization_id: string
+          scheduled_for: string | null
+          started_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_items?: Json
+          agenda?: string
+          created_at?: string
+          created_by: string
+          decisions?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string
+          organization_id: string
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_items?: Json
+          agenda?: string
+          created_at?: string
+          created_by?: string
+          decisions?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string
+          organization_id?: string
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_meetings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -824,6 +954,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "task_updates_actor_agent_id_fkey"
+            columns: ["actor_agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "task_updates_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -833,13 +970,6 @@ export type Database = {
           {
             foreignKeyName: "task_updates_target_agent_id_fkey"
             columns: ["target_agent_id"]
-            isOneToOne: false
-            referencedRelation: "ai_agents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_updates_actor_agent_id_fkey"
-            columns: ["actor_agent_id"]
             isOneToOne: false
             referencedRelation: "ai_agents"
             referencedColumns: ["id"]
@@ -868,7 +998,7 @@ export type Database = {
           organization_id: string
           priority: string
           status: string
-          title: string
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -885,7 +1015,7 @@ export type Database = {
           organization_id: string
           priority?: string
           status?: string
-          title: string
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -902,7 +1032,7 @@ export type Database = {
           organization_id?: string
           priority?: string
           status?: string
-          title?: string
+          title?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -988,6 +1118,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_project_plan: {
+        Args: { p_organization_id: string; p_plan_id: string }
+        Returns: Json
+      }
       approve_task_handoff: {
         Args: {
           p_organization_id: string
@@ -1006,6 +1140,15 @@ export type Database = {
         Returns: Json
       }
       create_organization: { Args: { org_name: string }; Returns: string }
+      reserve_agent_task_run: {
+        Args: {
+          p_agent_id: string
+          p_input?: Json
+          p_organization_id: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
