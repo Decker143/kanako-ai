@@ -54,6 +54,17 @@ This reference is a generated reconstruction aid, not a verified `pg_dump` repla
 
 Table privileges and RLS policies are separate layers. A grant allows a role to attempt a statement; RLS determines which rows are visible or writable. Do not blindly copy grants from the reference, disable RLS, or use the broad Dev fixture ACL as a template for newly added tables.
 
+## Existing fixture-data compatibility gate
+
+Read-only validation of the existing Dev rows found:
+- The composite key intended for `organization_members(organization_id, user_id)` has no null key parts and no duplicate pairs, so the current two rows do not block that primary key.
+- The existing status/role values in `ai_agents`, `tasks`, `agent_runs`, and `organization_members` are within the corresponding Production check-constraint value sets.
+- Existing references from `tasks.assigned_agent_id` to `ai_agents`, `agent_runs.agent_id` to `ai_agents`, and `agent_runs.task_id` to `tasks` resolve.
+- The fixture rows also contain references that cannot currently resolve: 2 `organization_members.organization_id`, 1 `ai_agents.organization_id`, 5 `tasks.organization_id`, and 2 `agent_runs.organization_id` values point to the not-yet-created `organizations` table; 1 `ai_agents.department_id` and 5 `tasks.department_id` values point to the not-yet-created `departments` table; and both `organization_members.user_id` values have no matching Dev Auth user (Dev currently has zero Auth users).
+- Three Production-required columns with no default are missing from populated fixture tables: `ai_agents.name`, `ai_agents.job_title`, and `tasks.title`. Adding them directly as `NOT NULL` would fail on the existing rows unless those rows are backfilled.
+
+**Implication:** Do not add validated foreign keys to the existing fixture rows as-is; they would fail. A safe additive candidate must either use carefully reviewed `NOT VALID` foreign keys (which still enforce new inserts/updates but leave existing rows unvalidated) or obtain explicit approval for a synthetic fixture-data repair strategy. Do not silently rewrite fixture values or create Auth users. The required `name`, `job_title`, and `title` columns also need a deliberate compatibility treatment; adding them nullable is not exact Production parity, while backfilling changes fixture data. Keep this as an explicit pre-application decision gate.
+
 ## Migration candidate gate
 
 A candidate SQL migration is **not yet ready to apply**. Outstanding static checks:
