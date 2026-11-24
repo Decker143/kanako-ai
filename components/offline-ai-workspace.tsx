@@ -139,6 +139,8 @@ async function readRecords<T extends { id: string; organizationId: string }>(sto
 
 export function OfflineAIWorkspace() {
   const engineRef = useRef<LocalEngine | null>(null);
+  const activeOrganizationRef = useRef("");
+  const snapshotRequestRef = useRef(0);
   const [online, setOnline] = useState(true);
   const [organizationId, setOrganizationId] = useState("");
   const [snapshot, setSnapshot] = useState<OfflineSnapshot | null>(null);
@@ -173,6 +175,8 @@ export function OfflineAIWorkspace() {
       setSyncMessage("A local AI operation is already running. Wait for it to finish, then refresh the snapshot.");
       return;
     }
+    const requestId = ++snapshotRequestRef.current;
+    if (activeOrganizationRef.current !== orgId) return;
     setRefreshingSnapshot(true);
     setSyncMessage("Connecting to your cloud workspace and preparing the offline snapshot…");
     try {
@@ -183,15 +187,19 @@ export function OfflineAIWorkspace() {
         throw new Error("The cloud response was incomplete. No new snapshot was saved.");
       }
       const next: OfflineSnapshot = { ...data as Omit<OfflineSnapshot, "id">, id: "active" };
+      if (requestId !== snapshotRequestRef.current || activeOrganizationRef.current !== orgId) return;
       await saveRecord("snapshots", next);
+      if (requestId !== snapshotRequestRef.current || activeOrganizationRef.current !== orgId) return;
       setSnapshot(next);
       setSelectedAgentId(current => next.agents.some(agent => agent.id === current) ? current : next.agents[0]?.id || "");
       setSelectedTaskId(current => next.tasks.some(task => task.id === current) ? current : next.tasks[0]?.id || "");
       setSyncMessage("Offline snapshot refreshed successfully: " + next.agents.length + " eligible AI employee(s), " + next.tasks.length + " queued or blocked task(s).");
     } catch (error) {
-      setSyncMessage(error instanceof Error ? error.message : "Could not refresh the offline employee and task snapshot. The last saved snapshot remains available.");
+      if (requestId === snapshotRequestRef.current && activeOrganizationRef.current === orgId) {
+        setSyncMessage(error instanceof Error ? error.message : "Could not refresh the offline employee and task snapshot. The last saved snapshot remains available.");
+      }
     } finally {
-      setRefreshingSnapshot(false);
+      if (requestId === snapshotRequestRef.current) setRefreshingSnapshot(false);
     }
   }
 
@@ -202,6 +210,9 @@ export function OfflineAIWorkspace() {
     const loadWorkspace = (nextOrganizationId: string) => {
       if (currentOrganizationId === nextOrganizationId) return;
       currentOrganizationId = nextOrganizationId;
+      activeOrganizationRef.current = nextOrganizationId;
+      // Invalidate any cloud snapshot request started for the previous workspace.
+      snapshotRequestRef.current += 1;
       // Clear the previous workspace immediately so its cached data is never shown
       // while the newly selected workspace is loading.
       setOrganizationId(nextOrganizationId);
