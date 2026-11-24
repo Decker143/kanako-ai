@@ -6,8 +6,8 @@ const MODEL_ID = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 const DB_NAME = "kanako-ai-local";
 const DB_VERSION = 2;
 
-type LocalMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
-type LocalTask = { id: string; title: string; description: string; createdAt: string; syncedAt?: string };
+type LocalMessage = { id: string; organizationId: string; role: "user" | "assistant"; content: string; createdAt: string };
+type LocalTask = { id: string; organizationId: string; title: string; description: string; createdAt: string; syncedAt?: string };
 type OfflineAgent = { id: string; name: string; job_title: string; instructions: string | null; department_id: string | null; capabilities: unknown };
 type OfflineCloudTask = { id: string; title: string; description: string | null; status: string; priority: string; department_id: string | null; assigned_agent_id: string | null };
 type OfflineMemory = { agent_id: string; memory_type: string; title: string; content: string; confidence: number };
@@ -25,7 +25,7 @@ type OfflineSnapshot = {
   previousRuns: OfflinePreviousRun[];
   knowledgeDocuments: { title: string; content: string }[];
 };
-type LocalRun = { id: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string; quality?: { status: "ready_for_review" | "needs_revision"; wordCount: number; issues: string[] } };
+type LocalRun = { id: string; organizationId: string; agentId: string; taskId: string; output: string; model: string; createdAt: string; syncedAt?: string; quality?: { status: "ready_for_review" | "needs_revision"; wordCount: number; issues: string[] } };
 
 function buildTaskRegisterSpecification(taskTitle: string) {
   return [
@@ -114,22 +114,22 @@ function openLocalDb(): Promise<IDBDatabase> {
   });
 }
 
-async function saveRecord<T extends { id: string }>(store: StoreName, value: T) {
+async function saveRecord<T extends { id: string; organizationId: string }>(store: StoreName, value: T) {
   const db = await openLocalDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(store, "readwrite");
-    tx.objectStore(store).put(value);
+    tx.objectStore(store).put({ ...value, recordId: value.id, id: value.organizationId + ":" + value.id });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
   db.close();
 }
 
-async function readRecords<T>(store: StoreName): Promise<T[]> {
+async function readRecords<T extends { id: string; organizationId: string }>(store: StoreName, organizationId: string): Promise<T[]> {
   const db = await openLocalDb();
   const values = await new Promise<T[]>((resolve, reject) => {
     const request = db.transaction(store, "readonly").objectStore(store).getAll();
-    request.onsuccess = () => resolve(request.result as T[]);
+    request.onsuccess = () => resolve((request.result as Array<T & { recordId?: string }>).filter(item => item.organizationId === organizationId && item.id.startsWith(organizationId + ":")).map(item => ({ ...item, id: item.recordId ?? item.id.slice(organizationId.length + 1) })) as T[]);
     request.onerror = () => reject(request.error);
   });
   db.close();
@@ -211,14 +211,17 @@ export function OfflineAIWorkspace() {
     window.addEventListener("online", update);
     window.addEventListener("offline", update);
 
+    let activeOrganizationId = "";
+    try { activeOrganizationId = localStorage.getItem("kanako-ai-active-org") ?? ""; } catch { activeOrganizationId = ""; }
+    setOrganizationId(activeOrganizationId);
+    const storageOrganizationId = activeOrganizationId || "device-local";
     Promise.all([
-      readRecords<LocalMessage>("messages"),
-      readRecords<LocalTask>("tasks"),
-      readRecords<OfflineSnapshot>("snapshots"),
-      readRecords<LocalRun>("runs"),
+      readRecords<LocalMessage>("messages", storageOrganizationId),
+      readRecords<LocalTask>("tasks", storageOrganizationId),
+      readRecords<OfflineSnapshot>("snapshots", storageOrganizationId),
+      readRecords<LocalRun>("runs", storageOrganizationId),
     ]).then(([savedMessages, savedTasks, savedSnapshots, savedRuns]) => {
       if (disposed) return;
-      try { setOrganizationId(localStorage.getItem("kanako-ai-active-org") ?? ""); } catch { setOrganizationId(""); }
       setMessages(savedMessages.sort((a,b) => a.createdAt.localeCompare(b.createdAt)));
       setTasks(savedTasks.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
       setSnapshot(savedSnapshots.find(item => item.id === "active") ?? null);
@@ -267,8 +270,8 @@ export function OfflineAIWorkspace() {
     if (!text || !engine || busy) return;
     setBusy(true);
     setPrompt("");
-    const userMessage: LocalMessage = { id: crypto.randomUUID(), role: "user", content: text, createdAt: new Date().toISOString() };
-    const assistantMessage: LocalMessage = { id: crypto.randomUUID(), role: "assistant", content: "", createdAt: new Date().toISOString() };
+    const userMessage: LocalMessage = { id: crypto.randomUUID(), organizationId: organizationId || "device-local", role: "user", content: text, createdAt: new Date().toISOString() };
+    const assistantMessage: LocalMessage = { id: crypto.randomUUID(), organizationId: organizationId || "device-local", role: "assistant", content: "", createdAt: new Date().toISOString() };
     setMessages(current => [...current, userMessage, assistantMessage]);
     await saveRecord("messages", userMessage);
     try {
@@ -351,6 +354,7 @@ export function OfflineAIWorkspace() {
         const quality = reviewLocalOutput(output, task.title, (snapshot?.departments ?? []).map(item => item.name));
         const localRun: LocalRun = {
           id: crypto.randomUUID(),
+          organizationId,
           agentId: agent.id,
           taskId: task.id,
           output,
@@ -384,6 +388,7 @@ export function OfflineAIWorkspace() {
       const quality = reviewLocalOutput(output, task.title, (snapshot?.departments ?? []).map(item => item.name));
       const localRun: LocalRun = {
         id: crypto.randomUUID(),
+        organizationId,
         agentId: agent.id,
         taskId: task.id,
         output,
@@ -410,6 +415,7 @@ export function OfflineAIWorkspace() {
     if (!title) return;
     const task: LocalTask = {
       id: crypto.randomUUID(),
+      organizationId: organizationId || "device-local",
       title,
       description: taskDescription.trim(),
       createdAt: new Date().toISOString(),
@@ -475,8 +481,8 @@ export function OfflineAIWorkspace() {
     }
   }
 
-  const availableTasks = (snapshot?.tasks ?? []).filter(task => (!task.assigned_agent_id || task.assigned_agent_id === selectedAgentId) && !runs.some(run => run.taskId === task.id && !run.syncedAt));
-  const availableAgents = snapshot?.agents ?? [];
+  const availableTasks = (snapshot?.organizationId === organizationId ? snapshot.tasks : []).filter(task => (!task.assigned_agent_id || task.assigned_agent_id === selectedAgentId) && !runs.some(run => run.taskId === task.id && !run.syncedAt));
+  const availableAgents = snapshot?.organizationId === organizationId ? snapshot.agents : [];
 
   return <div className="offline-workspace">
     <div className="panel">
