@@ -16,6 +16,7 @@ declare
   v_task public.tasks%rowtype;
   v_open_count integer;
   v_run_id uuid;
+  v_updated_count integer;
 begin
   if auth.uid() is null then
     raise exception 'Authentication required' using errcode = '42501';
@@ -95,6 +96,11 @@ begin
       assigned_agent_id = p_agent_id
   where id = p_task_id
     and organization_id = p_organization_id;
+
+  get diagnostics v_updated_count = row_count;
+  if v_updated_count <> 1 then
+    raise exception 'Task could not be moved into the in-progress state' using errcode = 'P0001';
+  end if;
 
   return jsonb_build_object(
     'run_id', v_run_id,
