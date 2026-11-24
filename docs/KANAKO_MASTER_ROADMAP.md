@@ -295,3 +295,9 @@ Next:
 - The dashboard is informational only; it does not automatically assign or reassign work. This stays within Phase 1 CEO Command Center visibility and the free Dev/Preview workflow.
 - [Still open] Browser-level offline sync and cross-workspace switching tests remain unverified. The repository has no Playwright setup yet, and the current execution environment cannot reach the Preview URL; do not mark browser E2E as passed until an actual supported browser run is available.
 - [Safety] This change is limited to the Phase 1 feature branch. No Supabase data/schema, Production deployment, paid plan, or AI provider was changed.
+
+## Phase 1 employee profile audit — 2026-11-25
+
+- [Verified in Dev] Audited all nine AI employee profiles in `KANAKO Phase 1 Test Workspace`. All nine have a department assignment, role description, operating instructions, and non-empty skill tags. Kanako's CEO profile was the only profile missing skill tags; populated that empty field with `strategic planning`, `task orchestration`, `workload balancing`, `risk escalation`, and `executive reporting`.
+- [Safety verified] All nine profiles remain Draft, have no configured model, and have an empty capabilities array. No employee was activated and no AI execution permission was enabled. This preserves the existing approval and cost gates.
+- [Scope] The update was limited to the Dev test workspace. Production data and schema were not changed; no paid service or provider call was used.
