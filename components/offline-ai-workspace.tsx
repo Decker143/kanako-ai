@@ -216,6 +216,7 @@ export function OfflineAIWorkspace() {
       // Clear the previous workspace immediately so its cached data is never shown
       // while the newly selected workspace is loading.
       setOrganizationId(nextOrganizationId);
+      setRefreshingSnapshot(false);
       setSnapshot(null);
       setMessages([]);
       setTasks([]);
