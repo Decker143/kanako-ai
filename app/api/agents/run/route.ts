@@ -36,16 +36,6 @@ export async function POST(request: Request) {
   if (task.department_id && agent.department_id && task.department_id !== agent.department_id) {
     return NextResponse.json({ error: "The task department does not match this AI employee's assigned department. Reassign the task or employee before running it." }, { status: 409 });
   }
-  const { count: openTaskCount, error: capacityError } = await supabase.from("tasks")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", membership.organization_id)
-    .eq("assigned_agent_id", agent.id)
-    .not("status", "in", '("completed","cancelled")');
-  if (capacityError) return NextResponse.json({ error: "Could not verify the AI employee's current workload. No run was started." }, { status: 503 });
-  const alreadyAssigned = task.assigned_agent_id === agent.id;
-  if (!alreadyAssigned && (openTaskCount ?? 0) >= (agent.max_concurrent_tasks ?? 1)) {
-    return NextResponse.json({ error: "This AI employee has reached their concurrent task capacity." }, { status: 409 });
-  }
   const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
   if (!capabilities.includes("task_execution")) {
     return NextResponse.json({ error: "This AI employee does not have the Task execution permission." }, { status: 403 });
@@ -53,28 +43,33 @@ export async function POST(request: Request) {
   if (!agent.model_name || !agent.model_name.includes("/")) return NextResponse.json({ error: "Configure a valid AI Gateway model ID first." }, { status: 409 });
   if (!["queued", "blocked"].includes(task.status) || (task.assigned_agent_id && task.assigned_agent_id !== agent.id)) return NextResponse.json({ error: task.status === "in_review" ? "This task is awaiting human review. Approve it or request revisions before another AI run." : "This task is not available to the selected AI employee." }, { status: 409 });
 
-  const { data: run, error: runError } = await supabase.from("agent_runs").insert({
-    organization_id: membership.organization_id, agent_id: agent.id, task_id: task.id,
-    status: "running", input: { task_title: task.title, task_description: task.description, priority: task.priority },
-    started_at: new Date().toISOString(), created_by: user.id,
-  }).select("id").single();
-  if (runError) {
-    if (runError.code === "23505") {
+  const { data: reservationData, error: reservationError } = await supabase.rpc("reserve_agent_task_run", {
+    p_agent_id: agent.id,
+    p_organization_id: membership.organization_id,
+    p_task_id: task.id,
+    p_input: { task_title: task.title, task_description: task.description, priority: task.priority },
+  });
+  if (reservationError) {
+    if (reservationError.code === "23505") {
       return NextResponse.json({ error: "This task already has an AI run in progress. Wait for it to finish before starting another." }, { status: 409 });
     }
-    return NextResponse.json({ error: "Could not create the agent run record." }, { status: 500 });
+    if (reservationError.code === "42501") {
+      return NextResponse.json({ error: "Workspace authorization is required to reserve this AI task." }, { status: 403 });
+    }
+    if (reservationError.code === "P0002") {
+      return NextResponse.json({ error: "The AI employee or task could not be found in this workspace." }, { status: 404 });
+    }
+    if (reservationError.code === "P0001") {
+      return NextResponse.json({ error: reservationError.message || "The AI employee or task is not eligible to run." }, { status: 409 });
+    }
+    console.error("KANAKO AI task reservation failed", reservationError);
+    return NextResponse.json({ error: "Could not safely reserve this task. No AI work was run." }, { status: 503 });
   }
-
-  const { error: taskStartError } = await supabase.from("tasks").update({
-    status: "in_progress", assigned_agent_id: agent.id,
-  }).eq("id", task.id).eq("organization_id", membership.organization_id);
-  if (taskStartError) {
-    await supabase.from("agent_runs").update({
-      status: "failed", error: "Task could not be moved into the in-progress state.",
-      finished_at: new Date().toISOString(),
-    }).eq("id", run.id).eq("organization_id", membership.organization_id);
-    return NextResponse.json({ error: "The task could not be started. No AI work was run." }, { status: 409 });
+  const reservation = reservationData as { run_id?: unknown } | null;
+  if (!reservation || typeof reservation.run_id !== "string") {
+    return NextResponse.json({ error: "The task reservation returned an invalid result. No AI work was run." }, { status: 500 });
   }
+  const runId = reservation.run_id;
 
   await supabase.from("task_updates").insert({
     organization_id: membership.organization_id, task_id: task.id,
@@ -192,15 +187,15 @@ export async function POST(request: Request) {
     if (conversationError) throw conversationError;
 
     const { error: messageError } = await supabase.from("messages").insert([
-      { organization_id: membership.organization_id, conversation_id: conversation.id, role: "user", content: "Assigned task: " + task.title + "\n" + (task.description || ""), metadata: { agent_run_id: run.id } },
-      { organization_id: membership.organization_id, conversation_id: conversation.id, role: "assistant", content: result.text, agent_id: agent.id, metadata: { agent_run_id: run.id, model: agent.model_name } },
+      { organization_id: membership.organization_id, conversation_id: conversation.id, role: "user", content: "Assigned task: " + task.title + "\n" + (task.description || ""), metadata: { agent_run_id: runId } },
+      { organization_id: membership.organization_id, conversation_id: conversation.id, role: "assistant", content: result.text, agent_id: agent.id, metadata: { agent_run_id: runId, model: agent.model_name } },
     ]);
     if (messageError) throw messageError;
 
     const { error: updateError } = await supabase.from("agent_runs").update({
       status: "succeeded", output: { text: result.text, model: agent.model_name, conversation_id: conversation.id },
       finished_at: new Date().toISOString(),
-    }).eq("id", run.id).eq("organization_id", membership.organization_id);
+    }).eq("id", runId).eq("organization_id", membership.organization_id);
     if (updateError) throw updateError;
 
     await supabase.from("task_updates").insert({
@@ -215,10 +210,10 @@ export async function POST(request: Request) {
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversation.id);
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
-      action: "ai_agent.task_run_succeeded", entity_type: "agent_run", entity_id: run.id,
+      action: "ai_agent.task_run_succeeded", entity_type: "agent_run", entity_id: runId,
       details: { task_id: task.id, model: agent.model_name },
     });
-    return NextResponse.json({ runId: run.id, status: "succeeded", output: result.text, conversationId: conversation.id });
+    return NextResponse.json({ runId: runId, status: "succeeded", output: result.text, conversationId: conversation.id });
   } catch (error) {
     console.error("KANAKO AI agent run failed", error);
     const recoveryRequired = githubSideEffects.length > 0;
@@ -229,7 +224,7 @@ export async function POST(request: Request) {
         : "AI provider execution failed before any GitHub changes.",
       output: recoveryRequired ? { recovery_required: true, github_side_effects: githubSideEffects } : null,
       finished_at: new Date().toISOString(),
-    }).eq("id", run.id).eq("organization_id", membership.organization_id);
+    }).eq("id", runId).eq("organization_id", membership.organization_id);
     await supabase.from("tasks").update({
       status: recoveryRequired ? "blocked" : task.status,
       assigned_agent_id: task.assigned_agent_id ?? agent.id,
@@ -246,7 +241,7 @@ export async function POST(request: Request) {
       organization_id: membership.organization_id,
       agent_id: agent.id,
       task_id: task.id,
-      agent_run_id: run.id,
+      agent_run_id: runId,
       event_type: "task_failed",
       feedback: "The AI execution failed before producing a reviewable result.",
       lesson: "Inspect the execution error and retry only after correcting the underlying cause.",
@@ -255,7 +250,7 @@ export async function POST(request: Request) {
     });
     await supabase.from("activity_logs").insert({
       organization_id: membership.organization_id, actor_user_id: user.id, actor_agent_id: agent.id,
-      action: "ai_agent.task_run_failed", entity_type: "agent_run", entity_id: run.id,
+      action: "ai_agent.task_run_failed", entity_type: "agent_run", entity_id: runId,
     });
     return NextResponse.json({
       error: recoveryRequired
