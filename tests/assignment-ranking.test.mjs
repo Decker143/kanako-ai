@@ -21,7 +21,7 @@ test("department alignment outranks skill matches from another department", () =
   const ranked = rankAssignmentCandidates([
     candidate("sales-specialist", {
       department_id: "sales",
-      skills: ["customer", "support", "service", "workflow"],
+      skills: ["customer", "support", "service", "workflow", "review", "escalation", "steps", "prepare", "customer support", "service escalation", "support workflow"],
     }),
     candidate("customer-service-specialist", {
       department_id: "customer-service",
