@@ -2,7 +2,7 @@
 
 **Roadmap source:** `docs/KANAKO_MASTER_ROADMAP.md`  
 **Current phase:** Phase 1 — Virtual company structure  
-**Current status:** Dev schema baseline and nine-department organization bootstrap have been verified. The next roadmap gate is the project-plan approval/task-creation E2E flow.
+**Current status:** Dev schema baseline, nine-department organization bootstrap, and database-level project-plan approval checks verified. Browser/server-action E2E and shared active-workspace verification remain outstanding.
 
 ## Dev baseline application
 
@@ -41,9 +41,38 @@ The first two application attempts failed before committing any schema changes. 
 - Email confirmation is present.
 - The Dev-only `public.create_organization(text)` function was inspected before execution. It requires `auth.uid()`, creates the owner membership, seeds nine departments, and creates Kanako as a draft in CEO Office.
 - A controlled transaction supplied the synthetic identity's JWT subject/claims and invoked the function.
-- Verified results inside the transaction: 9 departments, exactly 1 CEO Office, exactly 1 Kanako draft assigned to CEO Office, and exactly 1 owner membership for the synthetic user.
-- The transaction was rolled back. A follow-up query confirmed 0 leftover organizations named `KANAKO Phase 1 Controlled Test`; the confirmed synthetic Dev Auth user remains.
-- This validates the database function's auth-claim and seed behavior. It is not yet a browser-level signup/onboarding E2E test.
+- Verified inside the transaction: 9 departments, exactly 1 CEO Office, exactly 1 Kanako draft assigned to CEO Office, and exactly 1 owner membership for the synthetic user.
+- The transaction was rolled back. A follow-up query confirmed no leftover test organization. The confirmed synthetic Dev Auth user remains.
+- This validates database function behavior under the supplied authenticated claims. It is not a browser-level signup/onboarding E2E test.
+
+## Project-plan approval and task creation checks
+
+**Status: DATABASE-LEVEL CHECKS PASSED — controlled Dev transactions, rolled back**
+
+Inspected the current feature-branch implementation in `app/actions.ts`:
+
+- `createProjectPlan` validates owner/admin role, required title/objective/task list, normalizes priority, and stores a structured `project_plan` report with `pending_approval`.
+- `approveProjectPlan` validates owner/admin role and workspace ownership of the plan, checks that the plan is pending and has tasks, and rejects unknown department names before claiming approval.
+- Approval claim uses a conditional update from `pending_approval` to `processing`; this is the duplicate-approval guard.
+- Task rows are created with `queued` status and plan metadata. Employee assignment/execution remains separate.
+- Database RLS policies for reports and tasks were inspected. A controlled transaction ran as the synthetic `authenticated` user with the owner membership, exercising the insert/update paths and task creation.
+
+Controlled Dev test results:
+
+| Check | Result |
+|---|---:|
+| Initial approval claim | 1 row claimed |
+| Second/duplicate approval claim | 0 rows claimed |
+| Unknown department detection | 1 invalid department detected |
+| Task creation from a valid two-task plan | 2 tasks created |
+| Final plan status after successful test | `approved` |
+| Department seed available to test workspace | 9 |
+
+A separate one-task guard test also confirmed one initial claim, zero duplicate claims, one task created, and final `approved` status. All test transactions were rolled back. Follow-up checks confirmed no leftover test organizations or test reports.
+
+**Important implementation risk found — not yet fixed:** approval claiming, task insertion, and final plan-status update are separate database requests in the server action, not one atomic database transaction. The conditional claim prevents a second approver from claiming the same pending plan, but an interruption after the claim can leave the plan in `processing`. The task-insert failure path marks the plan `failed`, but recovery/repair behavior is not yet proven. The final status update's returned error is not checked. Recommend a reviewed, atomic database function (or equivalent transaction boundary) before treating this workflow as production-ready. No code or schema change was made during this audit.
+
+**Test scope limitation:** these were controlled database-level simulations of the server action's writes and RLS behavior. The actual Next.js server actions, redirects, browser form flow, concurrent HTTP requests, and failure-recovery behavior have not yet been exercised end-to-end.
 
 ## Compatibility exceptions intentionally retained
 
@@ -60,15 +89,18 @@ The first two application attempts failed before committing any schema changes. 
 3. Obtain owner approval for the three nullable columns and 14 `NOT VALID` foreign keys — **completed**.
 4. Apply the reviewed candidate to Dev only — **completed and verified**.
 5. Create a synthetic Dev Auth test identity — **completed by owner**.
-6. Run the organization-seed test and verify nine departments plus a draft Kanako assigned to CEO Office — **passed in a rolled-back Dev transaction**.
-7. End-to-end test project-plan proposal, approval, task creation, duplicate-approval protection, and invalid department handling — **next; not yet tested**.
-8. Verify shared active-workspace context across the relevant app surfaces — **pending**.
+6. Verify nine-department organization bootstrap and draft Kanako in CEO Office — **passed in a rolled-back Dev transaction**.
+7. Verify project-plan approval guard, invalid department handling, task creation, and RLS write paths — **database-level checks passed in rolled-back Dev transactions**.
+8. Review and harden approval/task creation atomicity and recovery — **identified; implementation not changed**.
+9. Run actual authenticated Next.js/browser E2E tests for project-plan proposal, approval, duplicate concurrent approval, and failure recovery — **pending**.
+10. Verify shared active-workspace context across the relevant app surfaces — **pending**.
 
 ## Safety
 
 - Production remains read-only and unchanged.
 - No Production rows were copied into Dev.
 - No existing Dev fixture rows, test policies, grants, or reservation function were deleted or overwritten.
+- All newly created test organization/report/task rows were rolled back; only the synthetic Dev Auth user remains.
 - No Supabase project or branch was created; no paid resources were used.
 - No Vercel environment variables, Preview deployment, Production deployment, or GitHub PR merge was changed.
 - Do not run `db push`, reset, or replay the mismatched Production migration ledger.
