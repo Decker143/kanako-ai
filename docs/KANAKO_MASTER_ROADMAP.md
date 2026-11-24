@@ -269,3 +269,12 @@ Next:
 - [Tests added] Added five native Node test cases for department preference, complete skill-tag matching, capacity tie-breaking, skill-only matching when no department is selected, and empty candidate lists. Added `npm run test:assignment` and included it in the GitHub Actions quality workflow. The workflow now also runs on the focused Phase 1 branch. No new package dependency was added.
 - [Not yet verified] The new tests and build must run successfully on the focused branch before the matching change is considered complete. AI execution remains gated; no model call was made.
 - [Safety] Code and workflow changes are limited to the Phase 1 feature branch. No Supabase schema/data, Production environment, billing plan, or paid service was changed.
+
+
+## Assignment matching quality-check follow-up — 2026-11-25
+
+- [Passed on commit 15937a8] The five assignment-ranking Node tests passed (5/5), and TypeScript type-check passed.
+- [Lint blocker identified] The same quality workflow then failed at lint on pre-existing UI issues: an anchor used for internal navigation, intentional state hydration/reset in effects flagged by the current React lint rule, and an unused import. The assignment tests and typecheck were not the cause; the workflow skipped the build after lint failed.
+- [Fix committed; re-verification pending] Updated the offline workspace navigation to use Next.js Link, documented narrowly scoped lint suppressions for state hydration/reset effects, and removed an unused import. These are targeted quality-check fixes, not new product scope.
+- [Next gate] Wait for the final focused-branch CI run and matching Preview deployment; require assignment tests, typecheck, lint, and build to pass before marking deterministic matching verified.
+- [Safety] All changes remain on the Phase 1 feature branch. No Production resources, Supabase schema/data, paid plans, or paid AI services were changed.
