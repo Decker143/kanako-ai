@@ -2,7 +2,7 @@
 
 **Roadmap source:** `docs/KANAKO_MASTER_ROADMAP.md`  
 **Current phase:** Phase 1 — Virtual company structure  
-**Current status:** Dev schema baseline applied and structurally verified; Phase 1 E2E tests remain blocked on a separately approved synthetic Dev Auth identity.
+**Current status:** Dev schema baseline and nine-department organization bootstrap have been verified. The next roadmap gate is the project-plan approval/task-creation E2E flow.
 
 ## Dev baseline application
 
@@ -29,21 +29,21 @@ Post-apply catalog verification returned:
 | Public/private functions | 9 (8 restored + Dev-only reservation function) |
 | Public tables without RLS | 0 |
 
-Existing fixture row counts remain unchanged: 2 organization members, 1 AI agent, 5 tasks, and 2 agent runs. The Dev-only `reserve_agent_task_run(...)` function and all seven `test_*` policies remain present. Dev still has zero Auth users and no seeded organization/department data.
+Existing fixture row counts remain unchanged: 2 organization members, 1 AI agent, 5 tasks, and 2 agent runs. The Dev-only `reserve_agent_task_run(...)` function and all seven `test_*` policies remain present.
 
 The first two application attempts failed before committing any schema changes. Post-failure checks confirmed the original four-table fixture schema and migration history were intact. The corrected candidate was then applied successfully. The successful migration is recorded once; do not rerun the one-shot candidate.
 
 ## Nine-department organization-seed test
 
-**Status: BLOCKED — requires a separately approved synthetic Dev Auth identity**
+**Status: PASSED — controlled Dev transaction, rolled back**
 
-The canonical roadmap calls for verifying the nine-department migration and organization-creation function in a controlled test workspace or transaction.
-
-- Dev now contains the full 21-table application schema and the `organizations` primary key required by `create_organization(text)`.
-- The Auth trigger `auth.users.on_auth_user_created` has been restored.
-- Dev currently has 0 Auth users. A realistic `auth.uid()` organization-creation test therefore requires a synthetic authenticated identity.
-- No synthetic Auth user has been created; this needs separate explicit approval.
-- Do not run the organization-creation function in Production.
+- Synthetic Dev Auth identity created manually by the owner and confirmed in `auth.users`: `kanako-phase1-test@example.com`.
+- Email confirmation is present.
+- The Dev-only `public.create_organization(text)` function was inspected before execution. It requires `auth.uid()`, creates the owner membership, seeds nine departments, and creates Kanako as a draft in CEO Office.
+- A controlled transaction supplied the synthetic identity's JWT subject/claims and invoked the function.
+- Verified results inside the transaction: 9 departments, exactly 1 CEO Office, exactly 1 Kanako draft assigned to CEO Office, and exactly 1 owner membership for the synthetic user.
+- The transaction was rolled back. A follow-up query confirmed 0 leftover organizations named `KANAKO Phase 1 Controlled Test`; the confirmed synthetic Dev Auth user remains.
+- This validates the database function's auth-claim and seed behavior. It is not yet a browser-level signup/onboarding E2E test.
 
 ## Compatibility exceptions intentionally retained
 
@@ -59,9 +59,10 @@ The canonical roadmap calls for verifying the nine-department migration and orga
 2. Prepare additive Dev baseline candidate — **completed**.
 3. Obtain owner approval for the three nullable columns and 14 `NOT VALID` foreign keys — **completed**.
 4. Apply the reviewed candidate to Dev only — **completed and verified**.
-5. Create a synthetic Dev Auth test identity — **not yet authorized; do not create automatically**.
-6. Run the organization-seed test and verify exactly nine departments plus a draft Kanako assigned to CEO Office.
-7. Continue with the roadmap's project-plan approval, task creation, duplicate-approval protection, invalid-department handling, and shared active-workspace tests.
+5. Create a synthetic Dev Auth test identity — **completed by owner**.
+6. Run the organization-seed test and verify nine departments plus a draft Kanako assigned to CEO Office — **passed in a rolled-back Dev transaction**.
+7. End-to-end test project-plan proposal, approval, task creation, duplicate-approval protection, and invalid department handling — **next; not yet tested**.
+8. Verify shared active-workspace context across the relevant app surfaces — **pending**.
 
 ## Safety
 
