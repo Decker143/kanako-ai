@@ -351,3 +351,15 @@ Next:
 - [Dev performance warnings; origin unresolved] The advisor reports overlapping `test_*` policies. The prior policy-catalog review established that these duplicate or overlap canonical organization-membership policies, but the historical origin of those policies remains unverified. Keep them in place until the authoritative source and rollback path are established; no policy was dropped or modified.
 - [Current quality gate rechecked] GitHub Actions run `45506634507` completed successfully, including assignment ranking tests, typecheck, lint, build, Chromium installation, and the three offline workspace browser tests. Those browser tests still mock the offline API endpoints and therefore do not replace signed-in HTTP end-to-end coverage.
 - [Scope and safety] This follow-up was read-only inspection plus roadmap documentation. No Supabase schema/data/Auth setting, RLS policy, Production resource, Vercel deployment, billing plan, or AI execution was changed. Continue to keep authenticated Preview POST/retry tests, true multi-workspace browser isolation, and final interactive CEO Command Center verification as Phase 1 release gates.
+
+## Phase 1 dashboard count accuracy
+
+Date: 2026-11-25
+
+- CEO Command Center Open Tasks and Pending Approvals headline totals now use organization-scoped exact-count queries instead of counting only the latest 100 loaded rows.
+- Task Health and Workload descriptions explicitly disclose that those diagnostic indicators are based on the latest 100 loaded task records; this avoids implying that sample-based indicators are full-workspace totals.
+- GitHub Actions Quality checks passed for commit `7a5e2b2c64c8b31d9932ce169de4e2737af98a53`: assignment tests, TypeScript typecheck, lint, production build, and Chromium offline-workspace browser tests.
+- A Vercel Preview deployment for that exact commit reached READY: `dpl_C5UrtdTF6XD5RfDsegM5TMqGWQFH`. No Production deployment or promotion was performed.
+- Remaining verification: authenticated owner UI smoke test on the new Preview. Preview protection was not bypassed or shared; no access link was created. Actual authenticated task-sync/result-sync HTTP E2E and browser multi-workspace verification remain separate Phase 1 release gates.
+- No schema, database records, Auth settings, paid services, billing, or cloud AI execution were changed.
+
