@@ -120,6 +120,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     new Date(approval.created_at).getTime() < new Date().getTime() - 48 * 60 * 60 * 1000
   );
   const highPriorityTasks = activeTasks.filter(task => ["high", "urgent"].includes(task.priority));
+  const employeeWorkloads = activeEmployees.map(agent => {
+    const assignedTasks = activeTasks.filter(task => task.assigned_agent_id === agent.id);
+    const maxConcurrentTasks = agent.max_concurrent_tasks ?? 2;
+    return {
+      agent,
+      assignedTasks,
+      assignedCount: assignedTasks.length,
+      maxConcurrentTasks,
+      remainingCapacity: Math.max(0, maxConcurrentTasks - assignedTasks.length),
+      highPriorityCount: assignedTasks.filter(task => ["high", "urgent"].includes(task.priority)).length,
+    };
+  }).sort((a, b) => b.assignedCount - a.assignedCount || a.agent.name.localeCompare(b.agent.name));
+  const pendingApprovalItems = (approvals ?? []).filter(approval => approval.status === "pending").slice(0, 5);
   const ceoProfile = (agents ?? []).find(agent => agent.job_title === "AI Chief Executive Officer");
   const executiveAlerts = [
     ...overdueTasks.slice(0, 3).map(task => ({ label: "Overdue task", detail: task.title, href: "/?view=tasks" })),
@@ -177,6 +190,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="panel" style={{marginTop:14}}>
           <div className="row-between"><div><div className="eyebrow">OWNER ATTENTION</div><h3 style={{margin:"4px 0 0"}}>{executiveAlerts.length ? "Items requiring attention" : "No immediate operational alerts"}</h3></div><span className="pill">{executiveAlerts.length} alerts</span></div>
           {executiveAlerts.length ? <div className="stack" style={{marginTop:12}}>{executiveAlerts.map((alert,index)=><Link key={index} className="row-between subtle-link" href={alert.href} style={{padding:"9px 0",borderTop:"1px solid var(--line)"}}><span><strong>{alert.label}</strong><span className="muted" style={{display:"block",fontSize:12}}>{alert.detail}</span></span><span>Review →</span></Link>)}</div> : <p className="muted" style={{fontSize:12,marginBottom:0}}>No overdue, blocked, aging, failed, or capacity alerts were found in the records currently loaded.</p>}
+        </div>
+        <div className="section-head"><h2>Pending approvals</h2><Link className="subtle-link" href="/?view=approvals">Open approval center →</Link></div>
+        <div className="panel">
+          {pendingApprovalItems.length ? <div className="stack">{pendingApprovalItems.map(approval=><div key={approval.id} className="row-between" style={{padding:"9px 0",borderBottom:"1px solid var(--line)"}}><span><strong>{approval.title}</strong><span className="muted" style={{display:"block",fontSize:12}}>{approval.request_type.replaceAll("_"," ")} · Requested {dateLabel(approval.created_at)}</span></span><span className="pill">Pending</span></div>)}</div> : <p className="muted" style={{fontSize:12,margin:0}}>No approvals are waiting for owner review.</p>}
+          {pendingApprovals > 5 && <p className="muted" style={{fontSize:11,margin:"10px 0 0"}}>Showing 5 of {pendingApprovals} pending approvals.</p>}
+        </div>
+        <div className="section-head"><h2>Employee workload balance</h2><span className="pill">{activeEmployees.length} active employees</span></div>
+        <div className="panel table-wrap">
+          {employeeWorkloads.length ? <table className="table"><thead><tr><th>Employee</th><th>Department</th><th>Open tasks</th><th>Capacity left</th><th>Workload signal</th></tr></thead><tbody>{employeeWorkloads.map(({agent,assignedTasks,assignedCount,maxConcurrentTasks,remainingCapacity,highPriorityCount})=><tr key={agent.id}><td><strong>{agent.name}</strong></td><td>{(departments??[]).find(department=>department.id===agent.department_id)?.name ?? "Unassigned"}</td><td>{assignedCount} / {maxConcurrentTasks}{highPriorityCount ? <span className="muted" style={{display:"block",fontSize:11}}>{highPriorityCount} high-priority</span> : null}</td><td>{remainingCapacity}</td><td><span className="pill">{agent.availability_status !== "available" ? "Unavailable" : remainingCapacity === 0 ? "At capacity" : "Capacity available"}</span></td></tr>)}</tbody></table> : <div className="empty">No active AI employees yet. Draft profiles are excluded from workload calculations.</div>}
+          <p className="muted" style={{fontSize:11,margin:"10px 0 0"}}>Workload signals are informational only. Kanako does not automatically reassign tasks from this dashboard.</p>
         </div>
         <div className="section-head"><h2>Department health &amp; workload</h2><Link className="subtle-link" href="/?view=departments">View all →</Link></div>
         <p className="muted" style={{fontSize:11,marginTop:-6}}>Based on the latest {tasks?.length ?? 0} task records and {agentRuns?.length ?? 0} AI run records loaded for this workspace. Counts are operational signals, not an automated performance score.</p>
