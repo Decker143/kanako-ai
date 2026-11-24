@@ -94,10 +94,17 @@ function validateBranch(branch: string, write = false) {
 }
 
 function validatePath(path: string) {
+  const normalized = typeof path === "string" ? path.toLowerCase() : "";
+  const segments = typeof path === "string" ? path.split("/") : [];
   if (typeof path !== "string" || path.length < 1 || path.length > 240 || path.startsWith("/") ||
-      path.split("/").some(part => !part || part === "." || part === "..") ||
-      path.split("/").some(part => part.toLowerCase() === ".git" || /^\.env(?:\.|$)/i.test(part)) || /(^|\/)(?:secrets?|credentials?)(?:\/|\.|$)/i.test(path)) {
-    throw new Error("This repository path is not allowed.");
+      path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path) ||
+      segments.some(part => !part || part === "." || part === "..") ||
+      segments.some(part => part.toLowerCase() === ".git" || /^\.env(?:\.|$)/i.test(part)) ||
+      /(^|\/)(?:secrets?|credentials?)(?:\/|\.|$)/i.test(path) ||
+      normalized.startsWith(".github/workflows/") || normalized === ".github/workflows" ||
+      normalized.startsWith(".github/actions/") || normalized === ".github/actions" ||
+      normalized === ".gitmodules") {
+    throw new Error("This repository path is not allowed. Workflow, action, secret, and unsafe paths are blocked.");
   }
 }
 
