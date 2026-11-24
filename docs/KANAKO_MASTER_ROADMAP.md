@@ -278,3 +278,12 @@ Next:
 - [Fix committed; re-verification pending] Updated the offline workspace navigation to use Next.js Link, documented narrowly scoped lint suppressions for state hydration/reset effects, and removed an unused import. These are targeted quality-check fixes, not new product scope.
 - [Next gate] Wait for the final focused-branch CI run and matching Preview deployment; require assignment tests, typecheck, lint, and build to pass before marking deterministic matching verified.
 - [Safety] All changes remain on the Phase 1 feature branch. No Production resources, Supabase schema/data, paid plans, or paid AI services were changed.
+
+
+## Deterministic assignment matching — verification complete — 2026-11-25
+
+- [Verified] Focused GitHub Actions Quality checks passed on commit `51a5176c47e0d3054ff5eb94d50d136759ab6324`: assignment-ranking tests, TypeScript, lint, and build all succeeded.
+- [Verified] Vercel Preview deployment `dpl_4e3Za6AnMaWKrcTEnxBxaTDm5cRW` reached READY on the same commit. The existing feature-branch Preview alias was assigned without error.
+- [Verified] The Preview build completed Next.js compilation, TypeScript, static page generation (15/15), and output deployment. No Production target was selected.
+- [Safety] No Supabase schema/data, Production environment, billing plan, or paid AI service was changed.
+- [Next roadmap work] Continue with browser-level offline sync and cross-workspace switching tests, then complete the CEO Command Center department-health/workload/run-outcome/pending-approval visibility. Keep all verification in the Dev workspace and Preview environment.
