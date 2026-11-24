@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { OfflineAIWorkspace } from "@/components/offline-ai-workspace";
 
 export const dynamic = "force-static";
@@ -10,7 +11,7 @@ export default function OfflinePage() {
   return <main className="offline-page">
     <header className="offline-header">
       <div className="brand"><div className="brand-mark">K</div><span>KANAKO AI</span></div>
-      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span className="pill">Offline mode</span><a className="btn secondary" href="/">Connect online</a></div>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span className="pill">Offline mode</span><Link className="btn secondary" href="/">Connect online</Link></div>
     </header>
     <div className="offline-intro">
       <div className="eyebrow">LOCAL MODE</div>
