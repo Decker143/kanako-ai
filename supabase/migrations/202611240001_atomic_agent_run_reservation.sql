@@ -51,6 +51,10 @@ begin
     raise exception 'AI employee is not eligible for task execution' using errcode = 'P0001';
   end if;
 
+  if v_agent.max_concurrent_tasks < 1 then
+    raise exception 'AI employee concurrency limit must be at least one' using errcode = 'P0001';
+  end if;
+
   select * into v_task
   from public.tasks t
   where t.id = p_task_id
@@ -79,7 +83,7 @@ begin
     and t.id <> p_task_id
     and t.status not in ('completed', 'cancelled');
 
-  if v_open_count >= greatest(v_agent.max_concurrent_tasks, 1) then
+  if v_open_count >= v_agent.max_concurrent_tasks then
     raise exception 'AI employee has reached their concurrent task capacity' using errcode = 'P0001';
   end if;
 
@@ -107,7 +111,7 @@ begin
     'task_id', p_task_id,
     'agent_id', p_agent_id,
     'open_task_count_before_reservation', v_open_count,
-    'max_concurrent_tasks', greatest(v_agent.max_concurrent_tasks, 1)
+    'max_concurrent_tasks', v_agent.max_concurrent_tasks
   );
 end;
 $$;
