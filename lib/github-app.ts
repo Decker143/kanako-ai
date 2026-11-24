@@ -51,7 +51,12 @@ async function installationToken(access: "read" | "write" = "write") {
   if (!response.ok) throw new Error("GitHub App could not obtain a repository installation token.");
   const data = await response.json() as { token?: string; permissions?: Record<string, string> };
   if (!data.token) throw new Error("GitHub returned an invalid installation token.");
-  return { token: data.token, permissions: data.permissions ?? {} };
+  const permissions = data.permissions ?? {};
+  if (access === "write" &&
+      (permissions.contents !== "write" || permissions.pull_requests !== "write")) {
+    throw new Error("GitHub App write access is incomplete. Both contents and pull_requests must be granted write permission.");
+  }
+  return { token: data.token, permissions };
 }
 
 async function githubRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
