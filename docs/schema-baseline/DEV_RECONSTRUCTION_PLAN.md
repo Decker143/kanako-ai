@@ -35,9 +35,11 @@ The four Dev tables are `organization_members`, `ai_agents`, `tasks`, and `agent
 
 ## Important limitations before applying
 
-The cloud-generated SQL reference contains 21 `CREATE TABLE` statements, 115 `ADD CONSTRAINT` statements, 53 standalone `CREATE INDEX` statements, 72 RLS policies, 8 function definitions, 10 triggers, and 128 grant statements. The live catalog reports 81 indexes total; do not describe all 81 as standalone indexes because some indexes back primary-key/unique constraints. The reference also includes table and routine grants. It is not yet a byte-for-byte `pg_dump`: schema-level ACLs/default privileges, role attributes, extension setup details, Supabase-managed Auth/Storage objects, publication settings, and other platform-managed configuration require a separate review.
+The cloud-generated SQL reference contains 21 `CREATE TABLE` statements, 115 `ADD CONSTRAINT` statements, 58 standalone indexes (53 ordinary and 5 unique), 72 RLS policies, 8 function definitions, 10 triggers, 78 table-grant statements, and 21 routine EXECUTE-grant statements. The live catalog reports 81 indexes total: 58 standalone indexes plus 23 backing primary-key/unique constraints. The reference also includes the `private` schema and its functions, but schema ACLs/default privileges, role attributes, extension setup details, Supabase-managed Auth/Storage objects, publication settings, and other platform-managed configuration require separate review.
 
-The SQL reference is intentionally a **reference artifact**. It uses `CREATE TABLE` and `ALTER TABLE ADD CONSTRAINT` statements for a clean baseline and must not be run as-is against the existing fixture Dev project because several tables already exist there.
+The reference is a generated schema reconstruction aid, not a verified byte-for-byte `pg_dump`. It is intentionally a **reference artifact**. It uses `CREATE TABLE` and `ALTER TABLE ADD CONSTRAINT` statements for a clean baseline and must not be run as-is against the existing fixture Dev project because several tables already exist there.
+
+The seven existing Dev fixture policies were statically compared with their corresponding Production policy/helper logic. They appear equivalent or narrower, so preserving them alongside the Production policies does not introduce additional row access based on the inspected predicates. This remains subject to authenticated E2E verification.
 
 ## No changes applied
 
