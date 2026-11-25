@@ -464,3 +464,11 @@ Before every test, fix, refactor, or proposed resolution, identify the exact roa
 ## Current Production status
 
 **BLOCKED — NOT AUTHORIZED FOR LIVE RELEASE.** Phase 1 is still in progress and has outstanding authenticated end-to-end release gates. Current Dev/Preview success is not Production readiness. No Production deployment, migration, data mutation, AI activation, or billing change is authorized by this policy entry.
+
+## Phase 1 cross-workspace isolation recheck and CI run #390 — 2026-11-25
+
+- [CI passed on the exact current branch commit] GitHub Actions run #390 (45521305302) completed with conclusion success for commit 1a747b9dd9ba7d6c5853b61c685935baaab59e22. Assignment ranking tests, TypeScript typecheck, lint, production build, Chromium installation, and offline workspace Playwright tests all passed.
+- [Cross-workspace read isolation rechecked in Dev; transaction rolled back] Created a temporary organization owned by the separate permanent owner account and a fixture task inside a single database transaction. Under the Dev test user's PostgreSQL authenticated role and JWT subject, reads of the other organization's organization, membership, and task returned zero rows.
+- [Cross-workspace write isolation rechecked in Dev; transaction rolled back] A direct insert into the fixture organization's task scope was explicitly attempted under the non-member authenticated role and rejected by RLS with insufficient privilege. The test transaction was rolled back, so the temporary organization, membership, and task were not persisted.
+- [Boundary and limitation] This confirms the database RLS isolation behavior only. It does not exercise the protected Preview HTTP route or prove browser workspace switching across two memberships. Authenticated route-level denial and multi-workspace browser E2E remain open Phase 1 gates. The current Playwright browser suite uses mocked snapshot/sync endpoints.
+- [Roadmap alignment and safety] This supports Phase 1 organization isolation and offline API authorization acceptance criteria. Dev only; no schema, migration, persistent data, Auth settings, Production resources, billing, paid service, or AI execution changed.
