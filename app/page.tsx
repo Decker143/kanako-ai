@@ -81,7 +81,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     supabase.from("agent_memories").select("id,agent_id,memory_type,title,content,status,confidence,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(100),
     supabase.from("agent_learning_events").select("id,agent_id,event_type,feedback,lesson,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(100),
   ]);
-  const [{count:openTaskCount},{count:pendingApprovalCount}] = await Promise.all([
+  const [openTaskCountResult, pendingApprovalCountResult] = await Promise.all([
     supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).not("status","in",'("completed","cancelled")'),
     supabase.from("approvals").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("status","pending"),
   ]);
@@ -100,8 +100,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     return departmentMatch && statusMatch && assigneeMatch && queryMatch;
   });
 
-  const openTasks = openTaskCount ?? (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status)).length;
-  const pendingApprovals = pendingApprovalCount ?? (approvals ?? []).filter(a => a.status === "pending").length;
+  // Never substitute a limited page of records for an organization-wide exact count.
+  const openTasks = openTaskCountResult.error ? null : openTaskCountResult.count;
+  const pendingApprovals = pendingApprovalCountResult.error ? null : pendingApprovalCountResult.count;
   const activeTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status));
   const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < new Date().getTime());
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
@@ -174,8 +175,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="grid">
           <div className="panel stat"><div className="muted">Departments</div><strong>{departments?.length??0}</strong><span className="muted">Configured teams</span></div>
           <div className="panel stat"><div className="muted">AI Employees</div><strong>{agents?.length??0}</strong><span className="muted">Definitions saved</span></div>
-          <div className="panel stat"><div className="muted">Open Tasks</div><strong>{openTasks}</strong><span className="muted">Exact organization-wide count</span></div>
-          <div className="panel stat"><div className="muted">Pending Approvals</div><strong>{pendingApprovals}</strong><span className="muted">Awaiting human review</span></div>
+          <div className="panel stat"><div className="muted">Open Tasks</div><strong>{openTasks ?? "—"}</strong><span className="muted">{openTasks === null ? "Exact count unavailable · check connection and reload" : "Exact organization-wide count"}</span></div>
+          <div className="panel stat"><div className="muted">Pending Approvals</div><strong>{pendingApprovals ?? "—"}</strong><span className="muted">{pendingApprovals === null ? "Exact count unavailable · check connection and reload" : "Awaiting human review"}</span></div>
         </div>
         <div className="section-head"><h2>Kanako oversight &amp; AI performance</h2><span className="pill">Latest 50 run records</span></div>
         <div className="grid">
