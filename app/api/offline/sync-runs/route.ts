@@ -34,6 +34,7 @@ export async function POST(request: Request) {
 
   const syncedIds: string[] = [];
   for (const item of runs) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const id = typeof item.id === "string" ? item.id : "";
     const agentId = typeof item.agentId === "string" ? item.agentId : "";
     const taskId = typeof item.taskId === "string" ? item.taskId : "";
