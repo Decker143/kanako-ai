@@ -164,7 +164,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     <aside className="sidebar">
       <Link className="brand" href="/"><div className="brand-mark">K</div><span>KANAKO AI</span></Link>
       <div className="nav-label">WORKSPACE</div>
-      {nav.map(([key,label,icon])=><Link key={key} className={`nav-link ${view===key?"active":""}`} href={key==="overview"?"/":`/?view=${key}`}><span>{icon}</span>{label}{key==="approvals"&&pendingApprovals>0?<span className="nav-count">{pendingApprovals}</span>:null}</Link>)}
+      {nav.map(([key,label,icon])=><Link key={key} className={`nav-link ${view===key?"active":""}`} href={key==="overview"?"/":`/?view=${key}`}><span>{icon}</span>{label}{key==="approvals"&&pendingApprovals!==null&&pendingApprovals>0?<span className="nav-count">{pendingApprovals}</span>:null}</Link>)}
       <div className="nav-label">VIRTUAL COMPANY</div><Link className="nav-link" href="/office">▣ Virtual Office</Link><div className="nav-label">SYSTEM</div><Link className="nav-link" href="/offline">◉ Offline AI workspace</Link><a className="nav-link" href="#system-status">⚙ System status</a>
       <div className="sidebar-user"><div className="muted" style={{fontSize:10,marginBottom:7}}>SIGNED IN</div><div style={{fontSize:12,overflowWrap:"anywhere"}}>{user.email}</div><span className="pill" style={{marginTop:8}}>{role}</span><form action={signOut}><button className="btn secondary" style={{marginTop:12,width:"100%"}}>Sign out</button></form></div>
     </aside>
@@ -199,7 +199,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         <div className="section-head"><h2>Pending approvals</h2><Link className="subtle-link" href="/?view=approvals">Open approval center →</Link></div>
         <div className="panel">
           {pendingApprovalItems.length ? <div className="stack">{pendingApprovalItems.map(approval=><div key={approval.id} className="row-between" style={{padding:"9px 0",borderBottom:"1px solid var(--line)"}}><span><strong>{approval.title}</strong><span className="muted" style={{display:"block",fontSize:12}}>{approval.request_type.replaceAll("_"," ")} · Requested {dateLabel(approval.created_at)}</span></span><span className="pill">Pending</span></div>)}</div> : <p className="muted" style={{fontSize:12,margin:0}}>No approvals are waiting for owner review.</p>}
-          {pendingApprovals > 5 && <p className="muted" style={{fontSize:11,margin:"10px 0 0"}}>Showing 5 of {pendingApprovals} pending approvals.</p>}
+          {pendingApprovals !== null && pendingApprovals > 5 && <p className="muted" style={{fontSize:11,margin:"10px 0 0"}}>Showing 5 of {pendingApprovals} pending approvals.</p>}
         </div>
         <div className="section-head"><h2>Employee workload balance</h2><span className="pill">{activeEmployees.length} active employees</span></div>
         <div className="panel table-wrap">
