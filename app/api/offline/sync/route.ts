@@ -27,6 +27,7 @@ export async function POST(request: Request) {
 
   const syncedIds: string[] = [];
   for (const item of tasks) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const id = typeof item.id === "string" ? item.id : "";
     const title = typeof item.title === "string" ? item.title.trim() : "";
     const description = typeof item.description === "string" ? item.description.trim().slice(0, 4000) : "";
