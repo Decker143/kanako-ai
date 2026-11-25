@@ -379,3 +379,88 @@ Date: 2026-11-25
 - [Safety behavior observed] The Task Center showed that delegation to an AI employee requires AI execution approval. The owner did not edit the task, delegate it, activate an employee, or change any permissions.
 - [Scope] This closes the owner-visible department-to-task navigation smoke test for the Command Center. It does not prove every dashboard control, authenticated cross-workspace browser isolation, or AI-result HTTP synchronization.
 - [Roadmap alignment and safety] This is verification of the existing Phase 1 department/workforce/task visibility foundation. No code, schema, database records, Production resource, billing plan, or AI execution setting was changed during this UI check.
+
+# Production Readiness and Live Release Governance
+
+This policy is mandatory for every phase and every release. It defines when KANAKO AI may move from Dev/Preview into the live Production environment. Passing an individual test, completing a feature, or having a successful Preview deployment does NOT by itself authorize Production use.
+
+## Environment rules
+
+1. **Local / Dev:** Default environment for implementation, experiments, migrations, synthetic fixtures, regression tests, security checks, and user acceptance testing. Use free-plan resources only unless the owner explicitly approves a change.
+2. **Preview / staging:** Release-candidate environment built from the exact reviewed feature-branch commit. It must use Dev/test data and safe test credentials. Preview is not Production and must never be described as live.
+3. **Production:** The real live workspace and its real organization data. It is read-only for development and testing until the Production Readiness Gate below is passed and the owner gives explicit, release-specific approval.
+
+Never use real customer or business data as test fixtures. Never copy Dev synthetic records into Production. Keep secrets, auth users, storage objects, and database resources separated by environment.
+
+## Mandatory Production Readiness Gate
+
+Production activation or deployment is blocked until ALL applicable items below are documented as PASS, with evidence and the exact commit/release candidate identified:
+
+### A. Roadmap and scope
+- The feature belongs to an approved roadmap phase and its acceptance criteria are complete.
+- All critical and high-severity defects are resolved; remaining known limitations are documented and explicitly accepted by the owner.
+- No unapproved scope, dependency, paid service, plan upgrade, model provider, or recurring cost is introduced.
+- The roadmap, implementation notes, test evidence, and release notes agree on what is actually complete.
+
+### B. Engineering and regression
+- GitHub CI passes on the exact release-candidate commit: type checking, lint, production build, unit/integration tests, and applicable browser tests.
+- Database migrations are reviewed for ordering, repeatability, compatibility, data impact, and rollback/recovery. Destructive or irreversible migrations require a separately approved recovery plan.
+- Core user journeys are tested end-to-end in authenticated Preview using Dev data, including task lifecycle, approvals, organization/workspace isolation, offline sync/idempotency, and relevant role permissions.
+- No test is described as end-to-end if it only mocks HTTP or simulates a database role. Evidence must state the actual test boundary.
+- The exact release-candidate commit is frozen for review; any code change after sign-off invalidates affected test evidence and requires re-test.
+
+### C. Security and privacy
+- Authentication, authorization, owner/admin/member permissions, RLS, organization scoping, and cross-workspace denial are verified for the relevant APIs and data.
+- No unresolved critical/high security finding, exposed secret, unsafe default, or known cross-tenant data leak remains.
+- Sensitive data handling, logs, file access, and offline device-local storage behavior are reviewed.
+- Any accepted medium/low findings have a documented impact, mitigation, and owner acceptance.
+
+### D. Operations and recovery
+- Production database backup/restore posture and a tested recovery path are confirmed before any schema or data migration.
+- Deployment steps, migration order, environment variables, external integrations, monitoring, and post-deploy smoke tests are documented.
+- A rollback or forward-fix plan is prepared for the application and a compatible recovery plan exists for database changes. Do not promise rollback where a migration is irreversible.
+- A named release window, release owner, monitoring period, and stop/rollback criteria are defined.
+- Production smoke tests are read-only or use an explicitly approved, isolated test account/fixture. Never create synthetic records in real customer workspaces without explicit approval.
+
+### E. Cost and provider controls
+- Supabase, Vercel, model providers, integrations, email/SMS, storage, and any other external service remain within the owner's approved free-plan/cost constraints.
+- No paid plan, paid add-on, usage-based AI execution, billing change, or new recurring cost is activated without separate explicit approval.
+- AI employee activation, cloud model calls, and external side effects remain disabled unless the owner separately approves the exact scope and controls.
+
+### F. Owner approval
+- Provide the owner a concise release brief: exact commit, scope, passed/failed tests, known limitations, security findings, migration/data impact, costs, rollback plan, and post-release checks.
+- Obtain the owner's explicit approval for that specific Production release and its specified actions.
+- Silence, "proceed" for Dev work, approval of a Preview test, or prior approval for a different release does NOT count as Production approval.
+- If any material code, schema, data, cost, or scope change occurs after approval, pause and obtain renewed approval.
+
+## Required release sequence
+
+1. Implement only roadmap-approved work in the feature branch and Dev environment.
+2. Run automated CI and the relevant Dev regression/security tests. Use temporary synthetic Dev fixtures only when authorized; clean them up and verify cleanup.
+3. Deploy a Preview from the exact candidate commit using the free plan and Dev configuration. Do not call it Production.
+4. Complete authenticated Preview acceptance tests and document which tests are real browser/API E2E versus source review, SQL simulation, or mocked browser tests.
+5. Resolve blockers in the same roadmap scope. Re-run all affected tests; do not bypass a failed gate to meet a date.
+6. Complete the Production Readiness Gate checklist and prepare the release brief and recovery plan.
+7. STOP and request explicit, release-specific owner approval. Until approval is received, do not deploy to Production, run Production migrations, alter Production data/settings, activate cloud AI, or trigger external side effects.
+8. After approval only, execute the approved release steps, verify read-only/isolated Production smoke tests, monitor, and report results. If a stop criterion is met, halt and follow the approved recovery plan.
+9. Record the release commit, approval, migration identifiers, smoke-test evidence, incidents, and outcome in the roadmap/release log.
+
+## Automatic Production blockers
+
+Production remains blocked if any of the following applies:
+- Any mandatory test or CI check fails, is missing, or has stale evidence for a different commit.
+- Actual authenticated end-to-end verification is missing for a critical user journey or tenant boundary.
+- A critical/high security issue or unexplained cross-workspace access remains.
+- Migration impact, backup, restore, or recovery is unknown for a schema/data change.
+- Required environment separation or secrets are not verified.
+- Costs or provider behavior exceed or are unknown against the approved free-plan constraints.
+- AI execution, customer communications, payments, bookings, or other external side effects could occur without the required explicit authorization and human approval.
+- The owner has not explicitly approved the specific Production release.
+
+## Mandatory alignment rule for all future work
+
+Before every test, fix, refactor, or proposed resolution, identify the exact roadmap phase/objective and acceptance criterion it supports. Record the reason, expected result, test evidence, and whether it changes code, schema, data, environment, cost, or permissions. If it does not support an approved roadmap objective, do not proceed without first explaining the proposed deviation and obtaining the owner's approval. Prefer the smallest safe change that resolves the documented issue. Re-run relevant regression tests after every resolution. Keep Production untouched until the Production Readiness Gate and explicit owner approval are both satisfied.
+
+## Current Production status
+
+**BLOCKED — NOT AUTHORIZED FOR LIVE RELEASE.** Phase 1 is still in progress and has outstanding authenticated end-to-end release gates. Current Dev/Preview success is not Production readiness. No Production deployment, migration, data mutation, AI activation, or billing change is authorized by this policy entry.
