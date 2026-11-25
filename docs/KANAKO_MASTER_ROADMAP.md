@@ -372,6 +372,16 @@ Date: 2026-11-25
 - [AI-result sync still open] Source review confirms `POST /api/offline/sync-runs` authenticates with `getUser()`, checks owner/admin membership, validates run/employee/task UUIDs and non-empty output, and delegates each accepted result to the atomic `sync_offline_agent_run` RPC. The UI currently has zero cached active employees and no local runs; all nine employee profiles remain Draft with no model or execution capability. Therefore a real browser POST test cannot be produced through the normal UI without changing employee activation/model/execution gates or injecting a synthetic local run. Neither is authorized or necessary for this safe verification step. Keep AI-result HTTP E2E as an explicit release gate; do not download a model, activate an employee, or execute AI to manufacture a test.
 - [Roadmap alignment and safety] This closes the authenticated task-sync happy-path portion of the existing Phase 1 offline/API verification. Only the existing free Dev project and protected Preview were used. The temporary record was removed. No Production, schema, Auth, RLS, billing, paid service, model provider, employee profile, or cloud AI execution was changed.
 
+
+
+## Phase 1 Analytics & QA department navigation smoke test — 2026-11-25
+
+- [Passed in the signed-in Dev Preview UI] From the CEO Command Center, the owner opened Analytics & QA using **Review department tasks**. The application navigated to Task Center with the Analytics & QA department filter selected.
+- [Record consistency verified in the UI] Task Center showed the single Analytics & QA task, **Record Phase 1 verification results**, with Low priority, Queued status, and Unassigned owner. This matched the existing Dev workspace task record.
+- [Safety behavior observed] AI delegation remained gated and required explicit AI execution approval. The owner did not edit, assign, delegate, or otherwise mutate the task.
+- [Scope] This closes the Analytics & QA department-to-task navigation smoke test. Together with the Operations navigation check, it verifies two distinct department links from the Command Center; it does not prove every dashboard control or the complete CEO operating loop.
+- [Roadmap alignment and safety] This is verification of the existing Phase 1 department/workforce/task visibility foundation. No code, schema, database records, Production resource, billing plan, or AI execution setting was changed during this UI check.
+
 ## Phase 1 CEO Command Center interaction smoke test — 2026-11-25
 
 - [Passed in the signed-in Dev Preview UI] The owner opened the Operations department from the CEO Command Center using **Review department tasks**. The application navigated to Task Center with the Operations department filter applied.
