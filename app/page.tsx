@@ -148,7 +148,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   };
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
   const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < now.getTime());
-  const unassignedTasks = activeTasks.filter(t => !t.assigned_agent_id);
   const failedWorkflowRuns = (workflowRuns ?? []).filter(run => run.status === "failed");
   const failedAgentRuns = (agentRuns ?? []).filter(run => run.status === "failed");
   const activeEmployees = (agents ?? []).filter(agent => agent.status === "active");
