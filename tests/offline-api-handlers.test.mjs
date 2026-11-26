@@ -182,3 +182,26 @@ test("task sync fails closed when workspace membership lookup errors", async () 
   assert.equal(response.status, 500);
   assert.equal(client.state.insertCalls.length, 0);
 });
+
+import { exactCountOrUnavailable, hasUnavailableWorkloadMetrics } from "../lib/command-center/metrics.ts";
+
+test("Command Center exact metrics preserve zero and mark query errors unavailable", () => {
+  assert.equal(exactCountOrUnavailable({ count: 0, error: null }), 0);
+  assert.equal(exactCountOrUnavailable({ count: 4, error: null }), 4);
+  assert.equal(exactCountOrUnavailable({ count: null, error: { message: "permission denied" } }), null);
+});
+
+test("Command Center workload metrics become unavailable when any employee or department count fails", () => {
+  assert.equal(hasUnavailableWorkloadMetrics(
+    [{ assignedCount: 0, highPriorityCount: 0 }],
+    [{ open: 0, blocked: 0, overdue: 0, unassigned: 0, completed: 0 }],
+  ), false);
+  assert.equal(hasUnavailableWorkloadMetrics(
+    [{ assignedCount: null, highPriorityCount: 0 }],
+    [{ open: 0, blocked: 0, overdue: 0, unassigned: 0, completed: 0 }],
+  ), true);
+  assert.equal(hasUnavailableWorkloadMetrics(
+    [{ assignedCount: 1, highPriorityCount: 0 }],
+    [{ open: 1, blocked: null, overdue: 0, unassigned: 0, completed: 0 }],
+  ), true);
+});
