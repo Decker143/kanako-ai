@@ -17,6 +17,7 @@ import { TaskSaveButton } from "@/components/task-save-button";
 import { TaskUpdateButton } from "@/components/task-update-button";
 import { OfflineOrgContext } from "@/components/offline-org-context";
 import { FlashNotice } from "@/components/flash-notice";
+import { exactCountOrUnavailable, hasUnavailableWorkloadMetrics } from "@/lib/command-center/metrics";
 
 const nav = [
   ["overview","Overview","◫"],["agents","AI Workforce","✧"],["departments","Departments","▦"],
@@ -99,7 +100,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
         supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("assigned_agent_id",agent.id).not("status","in",'("completed","cancelled")'),
         supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("assigned_agent_id",agent.id).not("status","in",'("completed","cancelled")').in("priority",["high","urgent"]),
       ]);
-      return { agentId: agent.id, assignedCount: assigned.error ? null : assigned.count, highPriorityCount: highPriority.error ? null : highPriority.count };
+      return { agentId: agent.id, assignedCount: exactCountOrUnavailable(assigned), highPriorityCount: exactCountOrUnavailable(highPriority) };
     })),
     Promise.all((departments ?? []).map(async department => {
       const base = () => supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("department_id",department.id);
@@ -112,11 +113,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
       ]);
       return {
         departmentId: department.id,
-        open: open.error ? null : open.count,
-        blocked: blocked.error ? null : blocked.count,
-        overdue: overdue.error ? null : overdue.count,
-        unassigned: unassigned.error ? null : unassigned.count,
-        completed: completed.error ? null : completed.count,
+        open: exactCountOrUnavailable(open),
+        blocked: exactCountOrUnavailable(blocked),
+        overdue: exactCountOrUnavailable(overdue),
+        unassigned: exactCountOrUnavailable(unassigned),
+        completed: exactCountOrUnavailable(completed),
       };
     })),
   ]);
@@ -136,15 +137,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   });
 
   // Never substitute a limited page of records for an organization-wide exact count.
-  const openTasks = openTaskCountResult.error ? null : openTaskCountResult.count;
-  const pendingApprovals = pendingApprovalCountResult.error ? null : pendingApprovalCountResult.count;
+  const openTasks = exactCountOrUnavailable(openTaskCountResult);
+  const pendingApprovals = exactCountOrUnavailable(pendingApprovalCountResult);
   const activeTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status));
   const exactTaskMetrics = {
-    blocked: blockedTaskCountResult.error ? null : blockedTaskCountResult.count,
-    overdue: overdueTaskCountResult.error ? null : overdueTaskCountResult.count,
-    stale: staleTaskCountResult.error ? null : staleTaskCountResult.count,
-    unassigned: unassignedTaskCountResult.error ? null : unassignedTaskCountResult.count,
-    highPriority: highPriorityTaskCountResult.error ? null : highPriorityTaskCountResult.count,
+    blocked: exactCountOrUnavailable(blockedTaskCountResult),
+    overdue: exactCountOrUnavailable(overdueTaskCountResult),
+    stale: exactCountOrUnavailable(staleTaskCountResult),
+    unassigned: exactCountOrUnavailable(unassignedTaskCountResult),
+    highPriority: exactCountOrUnavailable(highPriorityTaskCountResult),
   };
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
   const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < now.getTime());
@@ -162,7 +163,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     approval.status === "pending" &&
     new Date(approval.created_at).getTime() < new Date().getTime() - 48 * 60 * 60 * 1000
   );
-  const workloadMetricsUnavailable = employeeWorkloadResults.some(result => result.assignedCount === null || result.highPriorityCount === null) || departmentWorkloadResults.some(result => Object.values(result).some(value => value === null));
+  const workloadMetricsUnavailable = hasUnavailableWorkloadMetrics(employeeWorkloadResults, departmentWorkloadResults);
   const workloadByAgent = new Map(employeeWorkloadResults.map(result => [result.agentId, result]));
   const workloadByDepartment = new Map(departmentWorkloadResults.map(result => [result.departmentId, result]));
   const employeeWorkloads = activeEmployees.map(agent => {
