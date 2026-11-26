@@ -150,3 +150,35 @@ test("snapshot fails closed when a required workspace query fails", async () => 
   const response = await handleSnapshot(new Request(`http://localhost/api/offline/snapshot?organizationId=${orgId}`), client);
   assert.equal(response.status, 500);
 });
+
+test("task sync safely skips null, primitive, and array batch entries", async () => {
+  const client = makeClient();
+  const response = await handleTaskSync(request({
+    organizationId: orgId,
+    tasks: [null, "not-a-task", [], { id: taskId, title: "Valid task" }],
+  }), client);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).syncedIds, [taskId]);
+  assert.equal(client.state.insertCalls.length, 1);
+});
+
+test("AI-result sync safely skips null, primitive, and array batch entries", async () => {
+  const client = makeClient();
+  const response = await handleRunSync(request({
+    organizationId: orgId,
+    runs: [null, "not-a-run", [], { id: runId, agentId, taskId, output: "Valid synthetic result" }],
+  }, "/api/offline/sync-runs"), client);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).syncedIds, [runId]);
+  assert.equal(client.state.rpcCalls.length, 1);
+});
+
+test("task sync fails closed when workspace membership lookup errors", async () => {
+  const client = makeClient({ membershipError: { message: "synthetic membership lookup failure" } });
+  const response = await handleTaskSync(request({
+    organizationId: orgId,
+    tasks: [{ id: taskId, title: "Do not persist" }],
+  }), client);
+  assert.equal(response.status, 500);
+  assert.equal(client.state.insertCalls.length, 0);
+});
