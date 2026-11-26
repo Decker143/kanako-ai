@@ -1,0 +1,22 @@
+drop policy if exists test_runs_insert on public.agent_runs;
+drop policy if exists test_runs_select_members on public.agent_runs;
+drop policy if exists test_agents_read on public.ai_agents;
+drop policy if exists test_agents_update_admins on public.ai_agents;
+drop policy if exists test_members_read on public.organization_members;
+drop policy if exists test_tasks_read on public.tasks;
+drop policy if exists test_tasks_update on public.tasks;
+
+alter table public.organization_members validate constraint organization_members_organization_id_fkey;
+alter table public.organization_members validate constraint organization_members_user_id_fkey;
+alter table public.ai_agents validate constraint ai_agents_created_by_fkey;
+alter table public.ai_agents validate constraint ai_agents_department_id_fkey;
+alter table public.ai_agents validate constraint ai_agents_organization_id_fkey;
+alter table public.tasks validate constraint tasks_assigned_agent_id_fkey;
+alter table public.tasks validate constraint tasks_assigned_user_id_fkey;
+alter table public.tasks validate constraint tasks_created_by_fkey;
+alter table public.tasks validate constraint tasks_department_id_fkey;
+alter table public.tasks validate constraint tasks_organization_id_fkey;
+alter table public.agent_runs validate constraint agent_runs_agent_id_fkey;
+alter table public.agent_runs validate constraint agent_runs_created_by_fkey;
+alter table public.agent_runs validate constraint agent_runs_organization_id_fkey;
+alter table public.agent_runs validate constraint agent_runs_task_id_fkey;
