@@ -81,9 +81,44 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
     supabase.from("agent_memories").select("id,agent_id,memory_type,title,content,status,confidence,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(100),
     supabase.from("agent_learning_events").select("id,agent_id,event_type,feedback,lesson,created_at").eq("organization_id",orgId).order("created_at",{ascending:false}).limit(100),
   ]);
-  const [openTaskCountResult, pendingApprovalCountResult] = await Promise.all([
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const staleCutoffIso = new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString();
+  const [openTaskCountResult, pendingApprovalCountResult, blockedTaskCountResult, overdueTaskCountResult, staleTaskCountResult, unassignedTaskCountResult, highPriorityTaskCountResult] = await Promise.all([
     supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).not("status","in",'("completed","cancelled")'),
     supabase.from("approvals").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("status","pending"),
+    supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("status","blocked"),
+    supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).not("status","in",'("completed","cancelled")').lt("due_at",nowIso),
+    supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).in("status",["queued","in_progress","blocked"]).lt("created_at",staleCutoffIso),
+    supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).not("status","in",'("completed","cancelled")').is("assigned_agent_id",null),
+    supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).not("status","in",'("completed","cancelled")').in("priority",["high","urgent"]),
+  ]);
+  const [employeeWorkloadResults, departmentWorkloadResults] = await Promise.all([
+    Promise.all((agents ?? []).filter(agent => agent.status === "active").map(async agent => {
+      const [assigned, highPriority] = await Promise.all([
+        supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("assigned_agent_id",agent.id).not("status","in",'("completed","cancelled")'),
+        supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("assigned_agent_id",agent.id).not("status","in",'("completed","cancelled")').in("priority",["high","urgent"]),
+      ]);
+      return { agentId: agent.id, assignedCount: assigned.error ? null : assigned.count, highPriorityCount: highPriority.error ? null : highPriority.count };
+    })),
+    Promise.all((departments ?? []).map(async department => {
+      const base = () => supabase.from("tasks").select("id",{count:"exact",head:true}).eq("organization_id",orgId).eq("department_id",department.id);
+      const [open, blocked, overdue, unassigned, completed] = await Promise.all([
+        base().not("status","in",'("completed","cancelled")'),
+        base().eq("status","blocked"),
+        base().not("status","in",'("completed","cancelled")').lt("due_at",nowIso),
+        base().not("status","in",'("completed","cancelled")').is("assigned_agent_id",null),
+        base().eq("status","completed"),
+      ]);
+      return {
+        departmentId: department.id,
+        open: open.error ? null : open.count,
+        blocked: blocked.error ? null : blocked.count,
+        overdue: overdue.error ? null : overdue.count,
+        unassigned: unassigned.error ? null : unassigned.count,
+        completed: completed.error ? null : completed.count,
+      };
+    })),
   ]);
   const taskUpdatesByTask = new Map<string, NonNullable<typeof taskUpdates>>();
   for (const update of taskUpdates ?? []) {
@@ -104,39 +139,46 @@ export default async function Home({ searchParams }: { searchParams: Promise<{er
   const openTasks = openTaskCountResult.error ? null : openTaskCountResult.count;
   const pendingApprovals = pendingApprovalCountResult.error ? null : pendingApprovalCountResult.count;
   const activeTasks = (tasks ?? []).filter(t => !["completed","cancelled"].includes(t.status));
-  const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < new Date().getTime());
+  const exactTaskMetrics = {
+    blocked: blockedTaskCountResult.error ? null : blockedTaskCountResult.count,
+    overdue: overdueTaskCountResult.error ? null : overdueTaskCountResult.count,
+    stale: staleTaskCountResult.error ? null : staleTaskCountResult.count,
+    unassigned: unassignedTaskCountResult.error ? null : unassignedTaskCountResult.count,
+    highPriority: highPriorityTaskCountResult.error ? null : highPriorityTaskCountResult.count,
+  };
   const blockedTasks = activeTasks.filter(t => t.status === "blocked");
+  const overdueTasks = activeTasks.filter(t => t.due_at && new Date(t.due_at).getTime() < now.getTime());
   const unassignedTasks = activeTasks.filter(t => !t.assigned_agent_id);
   const failedWorkflowRuns = (workflowRuns ?? []).filter(run => run.status === "failed");
   const failedAgentRuns = (agentRuns ?? []).filter(run => run.status === "failed");
   const activeEmployees = (agents ?? []).filter(agent => agent.status === "active");
   const availableEmployees = activeEmployees.filter(agent => agent.availability_status === "available");
   const unavailableEmployees = activeEmployees.filter(agent => agent.availability_status !== "available");
-  const employeesAtCapacity = activeEmployees.filter(agent => {
-    const assignedOpenTasks = activeTasks.filter(task => task.assigned_agent_id === agent.id).length;
-    return assignedOpenTasks >= (agent.max_concurrent_tasks ?? 2);
-  });
+
   const staleTasks = activeTasks.filter(task =>
     ["queued", "in_progress", "blocked"].includes(task.status) &&
-    new Date(task.created_at).getTime() < new Date().getTime() - 72 * 60 * 60 * 1000
+    new Date(task.created_at).getTime() < now.getTime() - 72 * 60 * 60 * 1000
   );
   const agingApprovals = (approvals ?? []).filter(approval =>
     approval.status === "pending" &&
     new Date(approval.created_at).getTime() < new Date().getTime() - 48 * 60 * 60 * 1000
   );
-  const highPriorityTasks = activeTasks.filter(task => ["high", "urgent"].includes(task.priority));
+  const workloadByAgent = new Map(employeeWorkloadResults.map(result => [result.agentId, result]));
+  const workloadByDepartment = new Map(departmentWorkloadResults.map(result => [result.departmentId, result]));
   const employeeWorkloads = activeEmployees.map(agent => {
-    const assignedTasks = activeTasks.filter(task => task.assigned_agent_id === agent.id);
+    const workload = workloadByAgent.get(agent.id);
+    const assignedCount = workload?.assignedCount ?? null;
+    const highPriorityCount = workload?.highPriorityCount ?? null;
     const maxConcurrentTasks = agent.max_concurrent_tasks ?? 2;
     return {
       agent,
-      assignedTasks,
-      assignedCount: assignedTasks.length,
+      assignedCount,
       maxConcurrentTasks,
-      remainingCapacity: Math.max(0, maxConcurrentTasks - assignedTasks.length),
-      highPriorityCount: assignedTasks.filter(task => ["high", "urgent"].includes(task.priority)).length,
+      remainingCapacity: assignedCount === null ? null : Math.max(0, maxConcurrentTasks - assignedCount),
+      highPriorityCount,
     };
-  }).sort((a, b) => b.assignedCount - a.assignedCount || (a.agent.name ?? "").localeCompare(b.agent.name ?? ""));
+  }).sort((a, b) => (b.assignedCount ?? -1) - (a.assignedCount ?? -1) || (a.agent.name ?? "").localeCompare(b.agent.name ?? ""));
+  const employeesAtCapacity = employeeWorkloads.filter(item => item.assignedCount !== null && item.remainingCapacity === 0).map(item => item.agent);
   const pendingApprovalItems = (approvals ?? []).filter(approval => approval.status === "pending").slice(0, 5);
   const ceoProfile = (agents ?? []).find(agent => agent.job_title === "AI Chief Executive Officer");
   const executiveAlerts = [
