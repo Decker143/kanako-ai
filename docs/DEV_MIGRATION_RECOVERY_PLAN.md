@@ -50,3 +50,43 @@ Dev and Production previously compared equal for public constraints, indexes, po
 - This document is not itself authorization to run a destructive reset before the rehearsal passes.
 - No Production migration, schema/data change, deployment, branch merge, billing change, paid service, model-provider activation, or AI execution is authorized.
 - If a free-plan-compliant rehearsal cannot prove a safe rollback and restore, stop and report the blocker rather than risking the Dev workspace.
+
+
+## 5. Migration version mapping discovered
+
+Production's recorded history provides the canonical historical version/name mapping for the 30 later migrations. The current repository uses different version prefixes for many of these files, so filename/version normalization is required before a clean replay or future Production release. Representative mappings confirmed from the two ledgers:
+
+| Production ledger version | Production ledger name | Current repository file |
+|---|---|---|
+| 20261122222526 | add_agent_execution_runs | 202611230001_add_agent_execution_runs.sql |
+| 20261122222741 | restrict_agent_run_mutations_to_admins | 202611230002_restrict_agent_run_mutations.sql |
+| 20261122222753 | index_uncovered_foreign_keys | 202611230003_index_uncovered_foreign_keys.sql |
+| 20261122222846 | seed_kanako_ceo_draft_on_org_create | 202611230004_seed_kanako_ceo_draft.sql |
+| 20261122223014 | tighten_actor_and_relationship_rls | 202611230005_tighten_actor_and_relationship_rls.sql |
+| 20261122223618 | restrict_workflow_run_mutations | 202611230006_restrict_workflow_run_mutations.sql |
+| 20261122224005 | prevent_concurrent_workflow_runs | 202611230007_prevent_concurrent_workflow_runs.sql |
+| 20261122224303 | prevent_concurrent_agent_runs_per_task | 202611230008_prevent_concurrent_agent_runs_per_task.sql |
+| 20261122225058 | enforce_ai_task_review_gate | 202611230009_enforce_ai_task_review_gate.sql |
+| 20261122225135 | require_approved_ai_review_for_completion | 202611230010_require_approved_ai_review_for_completion.sql |
+| 20261122225327 | enforce_review_even_if_task_assignment_changes | 202611230011_enforce_review_even_if_task_assignment_changes.sql |
+| 20261122225401 | deterministic_latest_ai_review_selection | 202611230012_deterministic_latest_ai_review_selection.sql |
+| 20261122225643 | add_agent_learning_memory_system | 202611230013_add_agent_learning_memory_system.sql |
+| 20261122225647 | qualify_agent_learning_rls_policies | 202611230014_qualify_agent_learning_rls_policies.sql |
+| 20261122225928 | add_offline_task_sync_idempotency | 202611230015_add_offline_task_sync_idempotency.sql |
+| 20261122230103 | index_agent_learning_foreign_keys | 202611230016_index_agent_learning_foreign_keys.sql |
+| 20261122230236 | add_offline_agent_run_sync_idempotency | 202611230017_add_offline_agent_run_sync_idempotency.sql |
+| 20261122231734 | add_ceo_office_department_and_assign_kanako | 20261122231734_add_ceo_office_department_and_assign_kanako.sql |
+| 20261122231748 | fix_ceo_department_seed_function | 20261122231748_fix_ceo_department_seed_function.sql |
+| 20261122233409 | 202611230018_add_ai_employee_workforce_profiles | 202611230018_add_ai_employee_workforce_profiles.sql |
+| 20261122233411 | 202611230019_add_capacity_aware_task_assignment | 202611230019_add_capacity_aware_task_assignment.sql |
+| 20261122233448 | 202611230020_run_capacity_assignment_as_invoker | 202611230020_run_capacity_assignment_as_invoker.sql |
+| 20261122234234 | 202611230021_allow_admin_project_plan_review | 202611230021_allow_admin_project_plan_review.sql |
+| 20261122234525 | 202611230022_add_task_progress_handoffs_and_blockers | 202611230022_add_task_progress_handoffs_and_blockers.sql |
+| 20261122234625 | 202611230023_make_handoff_approval_atomic | 202611230023_make_handoff_approval_atomic.sql |
+| 20261122234647 | 202611230024_restrict_task_update_api_grants | 202611230024_restrict_task_update_api_grants.sql |
+| 20261122235021 | 202611230025_attribute_task_updates_to_ai_employees | 202611230025_attribute_task_updates_to_ai_employees.sql |
+| 20261122235056 | 202611230026_scope_task_update_references_to_workspace | 202611230026_scope_task_update_references_to_workspace.sql |
+| 20261123010049 | add_virtual_office_commands | 20261123010049_add_virtual_office_commands.sql |
+| 20261123011207 | create_office_meetings_and_attendees | 20261123030000_create_office_meetings_and_attendees.sql |
+
+This mapping is evidence from the Production ledger and current repository filenames, not proof that every file's contents are identical to the historical SQL that was applied. Each mapping must be checked against object definitions before any filename/history reconciliation. The four bootstrap migrations are still absent and their exact original SQL has not been recovered.
