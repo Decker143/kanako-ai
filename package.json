@@ -16,10 +16,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "ai": "^6.0.0",
-    "@mlc-ai/web-llm": "^0.2.89",
-    "@react-three/fiber": "^9.8.2",
-    "@react-three/drei": "^10.0.0",
-    "three": "^0.184.0"
+    "@mlc-ai/web-llm": "^0.2.89"
   },
   "devDependencies": {
     "@types/node": "22.19.1",
@@ -27,7 +24,6 @@
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.1",
     "eslint-config-next": "16.4.6",
-    "typescript": "5.9.3",
-    "@types/three": "^0.184.0"
+    "typescript": "5.9.3"
   }
 }

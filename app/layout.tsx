@@ -3,7 +3,7 @@ import "./globals.css";
 import { PWARegister } from "@/components/pwa-register";
 
 export const metadata: Metadata = {
-  title: "KANAKO AI — AI Office",
+  title: "KANAKO AI — Virtual Company",
   description: "Your intelligent virtual company workspace.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/kanako-icon.svg", apple: "/kanako-icon.svg" },
