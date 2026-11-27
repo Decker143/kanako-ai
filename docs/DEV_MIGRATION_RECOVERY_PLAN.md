@@ -35,7 +35,7 @@ Dev and Production previously compared equal for public constraints, indexes, po
 ## 3. Recovery design
 
 1. Freeze Dev writes during the recovery window; do not change Production.
-2. Capture and verify a complete Dev data snapshot for every non-empty application table, including stable IDs and foreign-key order. Keep Auth users and the Storage bucket `kanako-workspace-files` outside the reset scope.
+2. Capture and verify a complete Dev data snapshot for every non-empty application table, including stable IDs and foreign-key order. Keep Auth users outside the reset scope. A fresh read-only Dev catalog check on 2026-11-28 returned no rows in `storage.buckets`; do not assume a Dev Storage bucket exists. Recheck Storage immediately before any recovery window.
 3. Reconstruct a canonical bootstrap migration from the live Dev catalog: table/column definitions, constraints, indexes, RLS policies, triggers, functions, grants, and required schemas. Recover the four Production bootstrap intentions from catalog evidence where possible; clearly label any SQL that is reconstructed rather than original.
 4. Add explicit historical compatibility migrations for retired test-only fixture/policy entries only where the resulting clean-install end state is proven identical. Do not invent the original historical SQL or silently label reconstructed SQL as original.
 5. Resolve the offline-sync migration version mismatch and map each repository migration to its resulting schema objects. Establish one canonical ordered migration ledger and avoid duplicate application.
@@ -90,3 +90,53 @@ Production's recorded history provides the canonical historical version/name map
 | 20261123011207 | create_office_meetings_and_attendees | 20261123030000_create_office_meetings_and_attendees.sql |
 
 This mapping is evidence from the Production ledger and current repository filenames, not proof that every file's contents are identical to the historical SQL that was applied. Each mapping must be checked against object definitions before any filename/history reconciliation. The four bootstrap migrations are still absent and their exact original SQL has not been recovered.
+
+
+## 6. Reconstructed bootstrap dependency inventory — 2026-11-28
+
+The live Dev catalog was queried read-only to identify what the missing bootstrap layer must provide. This is a reconstruction inventory, not recovered original migration SQL.
+
+### Core objects that predate the tracked incremental migrations
+
+The following application tables exist before the later tracked migrations add their own tables: `organizations`, `profiles`, `organization_members`, `departments`, `ai_agents`, `tasks`, `activity_logs`, `approvals`, `automation_workflows`, `workflow_runs`, `conversations`, `messages`, `knowledge_documents`, and `reports`.
+
+The base layer also needs the `private` schema and its membership helpers:
+- `private.is_org_member(uuid)` — SECURITY DEFINER, stable, empty search_path, checks the caller's membership row.
+- `private.has_org_role(uuid,text[])` — SECURITY DEFINER, stable, empty search_path, checks the caller's membership role.
+- `public.set_updated_at()` — trigger function used by nine `set_updated_at` triggers.
+- `public.handle_new_user()` — SECURITY DEFINER trigger function used by `auth.on_auth_user_created` to create a profile from user metadata.
+- `public.create_organization(text)` — SECURITY DEFINER, empty search_path, authenticated caller check, owner membership, nine departments including CEO Office, and a Draft Kanako CEO profile assigned to CEO Office.
+
+Core public RLS is enabled and the live catalog shows organization-scoped policies across the core tables. A reconstruction must preserve policy expressions, grants, function ACLs, trigger bindings, check constraints, foreign keys, and indexes—not just create table columns.
+
+### Objects added by tracked incremental migrations
+
+| Repository migration | Objects/behavior added or changed |
+|---|---|
+| `202611230001_add_agent_execution_runs.sql` | `agent_runs`, indexes, RLS and member/admin policies; depends on core organization, agent, task, and private authorization objects |
+| `202611230004_seed_kanako_ceo_draft.sql` | Replaces `create_organization(text)` with owner membership, eight default departments, and Draft Kanako seed; later CEO Office migrations extend this behavior |
+| `202611230009`–`012` | Private AI-task review trigger function and task status trigger; successive versions tighten the review gate and deterministic latest-run selection |
+| `202611230013_add_agent_learning_memory_system.sql` | `agent_learning_events`, `agent_memories`, RLS and grants |
+| `202611230018_add_ai_employee_workforce_profiles.sql` | Adds employee skills, capacity, and availability fields/checks |
+| `202611230019_add_capacity_aware_task_assignment.sql` and `020` | Adds task assignment function, then changes it to SECURITY INVOKER |
+| `202611230022_add_task_progress_handoffs_and_blockers.sql` through `026` | Adds `task_updates`, AI actor attribution, workspace-scoped references, and atomic handoff approval |
+| `20261123010049_add_virtual_office_commands.sql` | Adds `office_commands` and its RLS/indexes |
+| `20261123030000_create_office_meetings_and_attendees.sql` | Adds `office_meetings` and `office_meeting_attendees` with RLS and indexes |
+| `20261124140000_add_atomic_project_plan_approval.sql` | Adds `approve_project_plan(uuid,uuid)` |
+| `20261124150000_make_offline_run_sync_atomic.sql` | Adds `sync_offline_agent_run(...) `; Dev's ledger version differs from this filename |
+| `20261126173711_remove_dev_test_policies_validate_foreign_keys.sql` | Removes retired test policies and validates 14 Dev foreign keys |
+
+### Unresolved Dev-only function provenance
+
+The Dev database contains `public.reserve_agent_task_run(uuid,uuid,uuid,jsonb)`, associated with the missing `atomic_agent_run_reservation` ledger entry. Its current definition was inspected read-only: SECURITY INVOKER, empty search_path, authenticated-only execution, and checks for workspace authorization, employee readiness, model/task execution capability, task eligibility, and concurrency before creating a run and moving the task into progress.
+
+No matching source migration or current source-code definition was found in either checked-in branch during this investigation. Its exact intended historical SQL and whether it is still required by the current application remain unproven. It must not be silently dropped or copied into a canonical baseline until its callers and behavior are mapped and regression-tested.
+
+### Important rebuild limitations
+
+- The four original bootstrap migration SQL files remain unrecoverable from the checked-in Git history. Any new bootstrap SQL must be explicitly labeled reconstructed.
+- The tracked incremental migrations assume the core tables and private helper functions already exist. Running them against an empty database without a correct bootstrap will fail or create an incomplete schema.
+- Dev currently permits NULL in `ai_agents.name`, `ai_agents.job_title`, and `tasks.title`; Production does not. The Dev rebuild must preserve the Dev nullability exactly and must not change Production.
+- A fresh live Dev Storage catalog check returned zero buckets. The earlier plan's assumption that `kanako-workspace-files` exists in Dev is not supported by the current query.
+- The available connected Supabase tools expose live database SQL but no free isolated scratch database. Creating a Supabase branch/project is excluded because it can incur hourly charges. No local PostgreSQL server, Docker, or SQL parser is available in the current execution environment.
+- Consequently, a full reset/replay/restore rehearsal has **not** yet been proven safe. Do not run a destructive reset or migration-history rewrite. The conditional Dev rebuild approval is not yet actionable until a no-cost rollback rehearsal and complete row snapshot/restore procedure can be verified.
